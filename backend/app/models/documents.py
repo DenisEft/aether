@@ -12,8 +12,8 @@ Architecture:
 
 from __future__ import annotations
 
-import uuid
 from datetime import datetime
+import uuid
 
 from sqlalchemy import (
     Boolean,
@@ -54,12 +54,13 @@ class Document(Base, UUIDPrimaryKey, TimestampMixin):
 
     # ── Identity ──────────────────────────────────────────
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     type: Mapped[str] = mapped_column(
-        String(50),
-        nullable=False,
-        comment="Document type key: order, invoice, request, act, waybill, etrn",
+        String(50), nullable=False, comment="Document type key: order, invoice, contract, custom"
     )
     template_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("templates.id", ondelete="SET NULL"), nullable=True
@@ -112,10 +113,14 @@ class Document(Base, UUIDPrimaryKey, TimestampMixin):
 
     # ── Relationships ─────────────────────────────────────
     company_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("organisations.id", ondelete="SET NULL"), nullable=True,
+        UUID(as_uuid=True),
+        ForeignKey("organisations.id", ondelete="SET NULL"),
+        nullable=True,
     )
     creator_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True,
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
     )
     linked_document_ids: Mapped[list[uuid.UUID] | None] = mapped_column(
         JSONB,
@@ -133,17 +138,19 @@ class Document(Base, UUIDPrimaryKey, TimestampMixin):
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # ── Relationships ─────────────────────────────────────
-    tenant: Mapped["Tenant"] = relationship(back_populates="documents")
-    template: Mapped["Template | None"] = relationship(back_populates="documents")
-    company: Mapped["Organisation | None"] = relationship()
-    creator: Mapped["User | None"] = relationship()
-    versions: Mapped[list["DocumentVersion"]] = relationship(
-        back_populates="document", order_by="DocumentVersion.version.desc()",
+    tenant: Mapped[Tenant] = relationship(back_populates="documents")
+    template: Mapped[Template | None] = relationship(back_populates="documents")
+    company: Mapped[Organisation | None] = relationship()
+    creator: Mapped[User | None] = relationship()
+    versions: Mapped[list[DocumentVersion]] = relationship(
+        back_populates="document",
+        order_by="DocumentVersion.version.desc()",
     )
-    operations: Mapped[list["DocumentOperation"]] = relationship(
-        back_populates="document", order_by="DocumentOperation.created_at.desc()",
+    operations: Mapped[list[DocumentOperation]] = relationship(
+        back_populates="document",
+        order_by="DocumentOperation.created_at.desc()",
     )
-    tags: Mapped[list["DocumentTag"]] = relationship(back_populates="document")
+    tags: Mapped[list[DocumentTag]] = relationship(back_populates="document")
 
     # ── Constraints ────────────────────────────────────────
     __table_args__ = (
@@ -167,7 +174,10 @@ class DocumentVersion(Base, UUIDPrimaryKey):
     __tablename__ = "document_versions"
 
     document_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("documents.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     version: Mapped[int] = mapped_column(Integer, nullable=False)
     fields_snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False)
@@ -180,7 +190,7 @@ class DocumentVersion(Base, UUIDPrimaryKey):
         DateTime(timezone=True), nullable=False, default=utcnow
     )
 
-    document: Mapped["Document"] = relationship(back_populates="versions")
+    document: Mapped[Document] = relationship(back_populates="versions")
 
     __table_args__ = (
         UniqueConstraint("document_id", "version", name="uq_doc_version"),
@@ -204,7 +214,10 @@ class DocumentOperation(Base, UUIDPrimaryKey):
     __tablename__ = "document_operations"
 
     document_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("documents.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     version: Mapped[int] = mapped_column(Integer, nullable=False)
     op_type: Mapped[str] = mapped_column(
@@ -216,7 +229,7 @@ class DocumentOperation(Base, UUIDPrimaryKey):
         JSONB,
         nullable=False,
         default=dict,
-        comment="Operation details: {field: 'cargo', old: 'уголь', new: 'руда'} or {status: 'confirmed'}",
+        comment="Operation details: {field: 'amount', old: '1000', new: '1500'} or {status: 'confirmed'}",
     )
     user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
@@ -225,12 +238,10 @@ class DocumentOperation(Base, UUIDPrimaryKey):
         DateTime(timezone=True), nullable=False, default=utcnow
     )
 
-    document: Mapped["Document"] = relationship(back_populates="operations")
-    user: Mapped["User | None"] = relationship()
+    document: Mapped[Document] = relationship(back_populates="operations")
+    user: Mapped[User | None] = relationship()
 
-    __table_args__ = (
-        {"comment": "Per-operation audit trail for document changes"},
-    )
+    __table_args__ = ({"comment": "Per-operation audit trail for document changes"},)
 
 
 # ── Document Tag ───────────────────────────────────────────────────────────
@@ -251,8 +262,8 @@ class DocumentTag(Base, UUIDPrimaryKey):
         UUID(as_uuid=True), ForeignKey("tags.id", ondelete="CASCADE"), nullable=False
     )
 
-    document: Mapped["Document"] = relationship(back_populates="tags")
-    tag: Mapped["Tag"] = relationship(back_populates="documents")
+    document: Mapped[Document] = relationship(back_populates="tags")
+    tag: Mapped[Tag] = relationship(back_populates="documents")
 
     __table_args__ = (
         UniqueConstraint("document_id", "tag_id", name="uq_doc_tag"),
@@ -272,7 +283,10 @@ class Tag(Base, UUIDPrimaryKey):
     __tablename__ = "tags"
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     color: Mapped[str | None] = mapped_column(String(7), comment="Hex color: #FF5733")
@@ -280,7 +294,7 @@ class Tag(Base, UUIDPrimaryKey):
         DateTime(timezone=True), nullable=False, default=utcnow
     )
 
-    documents: Mapped[list["DocumentTag"]] = relationship(back_populates="tag")
+    documents: Mapped[list[DocumentTag]] = relationship(back_populates="tag")
 
     __table_args__ = (
         UniqueConstraint("tenant_id", "name", name="uq_tag_name"),
@@ -336,11 +350,15 @@ class Template(Base, UUIDPrimaryKey, TimestampMixin):
     pdf_template: Mapped[str | None] = mapped_column(
         Text, comment="HTML template for PDF generation (Jinja2)"
     )
-    is_system: Mapped[bool] = mapped_column(Boolean, default=False, comment="System template, cannot be deleted")
-    is_public: Mapped[bool] = mapped_column(Boolean, default=False, comment="Available in template library")
+    is_system: Mapped[bool] = mapped_column(
+        Boolean, default=False, comment="System template, cannot be deleted"
+    )
+    is_public: Mapped[bool] = mapped_column(
+        Boolean, default=False, comment="Available in template library"
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
-    documents: Mapped[list["Document"]] = relationship(back_populates="template")
+    documents: Mapped[list[Document]] = relationship(back_populates="template")
 
     __table_args__ = (
         UniqueConstraint("tenant_id", "name", name="uq_template_name"),
