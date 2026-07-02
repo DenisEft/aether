@@ -1,9 +1,10 @@
-"""Authentication schemas: signup, login, tokens, API keys."""
+"""Authentication schemas: signup, login, tokens, API keys, passkeys, MFA."""
 
 from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -21,6 +22,8 @@ class SignupRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: str = Field(..., examples=["user@example.com"])
     password: str = Field(...)
+    mfa_code: Optional[str] = Field(None)
+    remember_me: Optional[bool] = Field(False)
 
 
 class MagicLinkRequest(BaseModel):
@@ -37,7 +40,33 @@ class RefreshRequest(BaseModel):
 
 class ApiKeyCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=128, examples=["CI/CD pipeline"])
-    expires_at: datetime | None = Field(None, description="Optional expiry (ISO-8601)")
+    expires_at: Optional[datetime] = Field(None, description="Optional expiry (ISO-8601)")
+
+
+class PasskeyRegistrationBeginRequest(BaseModel):
+    email: str = Field(..., examples=["user@example.com"])
+
+
+class PasskeyRegistrationCompleteRequest(BaseModel):
+    email: str = Field(..., examples=["user@example.com"])
+    response: dict = Field(...)
+
+
+class PasskeyAuthenticationBeginRequest(BaseModel):
+    email: str = Field(..., examples=["user@example.com"])
+
+
+class PasskeyAuthenticationCompleteRequest(BaseModel):
+    email: str = Field(..., examples=["user@example.com"])
+    response: dict = Field(...)
+
+
+class MFADisableRequest(BaseModel):
+    mfa_code: str = Field(...)
+
+
+class OAuthLoginRequest(BaseModel):
+    provider: str = Field(..., examples=["google", "yandex", "vk"])
 
 
 # ── Response schemas ──────────────────────────────────────────
@@ -56,7 +85,7 @@ class UserResponse(BaseModel):
     id: uuid.UUID = Field(...)
     email: str = Field(...)
     display_name: str = Field(default="")
-    avatar_url: str | None = Field(default=None)
+    avatar_url: Optional[str] = Field(default=None)
     is_verified: bool = Field(default=False)
     created_at: datetime = Field(...)
 
@@ -79,8 +108,8 @@ class ApiKeyResponse(BaseModel):
     name: str = Field(...)
     prefix: str = Field(..., description="Display-safe prefix (e.g. 'aeth••••••abcd')")
     created_at: datetime = Field(...)
-    last_used_at: datetime | None = Field(default=None)
-    expires_at: datetime | None = Field(default=None)
+    last_used_at: Optional[datetime] = Field(default=None)
+    expires_at: Optional[datetime] = Field(default=None)
 
     @classmethod
     def from_orm_model(cls, key: "ApiKey", full_key: str | None = None) -> "ApiKeyResponse":  # noqa: F821
@@ -99,3 +128,33 @@ class ApiKeyCreateResponse(BaseModel):
 
     api_key: ApiKeyResponse = Field(...)
     secret: str = Field(..., description="Full API key — shown only once")
+
+
+class PasskeyRegistrationBeginResponse(BaseModel):
+    challenge: str = Field(...)
+    public_key: dict = Field(...)
+
+
+class PasskeyAuthenticationBeginResponse(BaseModel):
+    challenge: str = Field(...)
+    public_key: dict = Field(...)
+
+
+class MFACodeResponse(BaseModel):
+    mfa_required: bool = Field(...)
+    mfa_enabled: bool = Field(...)
+
+
+class OAuthRedirectResponse(BaseModel):
+    redirect_url: str = Field(...)
+
+
+class OAuthCallbackResponse(BaseModel):
+    access_token: str = Field(...)
+    refresh_token: str = Field(...)
+
+
+class MFATokenResponse(BaseModel):
+    access_token: str = Field(...)
+    refresh_token: str = Field(...)
+    token_type: str = Field(default="bearer")

@@ -1,11 +1,11 @@
-"""Auth models: sessions, refresh tokens, magic links, API keys, passkeys."""
+"""Auth models: sessions, refresh tokens, magic links, API keys, passkeys, MFA."""
 
 from __future__ import annotations
 
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID, BYTEA, ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -104,7 +104,42 @@ class Passkey(Base, UUIDPrimaryKey):
     credential_id: Mapped[str] = mapped_column(Text, nullable=False)
     public_key: Mapped[bytes] = mapped_column(BYTEA, nullable=False)
     sign_count: Mapped[int] = mapped_column(Integer, default=0)
-    device_name: Mapped[str | None] = mapped_column(String)
+    name: Mapped[str | None] = mapped_column(String)
+    device_type: Mapped[str | None] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow
+    )
+
+
+class MFAConfig(Base, UUIDPrimaryKey):
+    __tablename__ = "mfa_configs"
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    secret_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    backup_codes: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow
+    )
+
+
+class OAuthState(Base, UUIDPrimaryKey):
+    __tablename__ = "oauth_states"
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+    )
+    state: Mapped[str] = mapped_column(Text, nullable=False)
+    provider: Mapped[str] = mapped_column(String, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow
     )
