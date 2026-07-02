@@ -1,0 +1,41 @@
+
+*~
+backend/.env
+build/
+.coverage
+coverage.xml
+*.crt
+# Database
+*.db
+dist/
+# Docker
+docker-compose.override.yml
+.DS_Store
+*.egg
+*.egg-info/
+.env
+# .gitignore — Aether
+htmlcov/
+.idea/
+# IDEs
+*.key
+*.log
+logs/
+# Logs
+# Node (frontend)
+node_modules/
+# OS
+*.pem
+__pycache__/
+*.py[cod]
+.pytest_cache/
+# Python
+# Secrets
+*.sqlite3
+*.swo
+*.swp
+# Tests
+Thumbs.db
+.venv/
+venv/
+.vscode/

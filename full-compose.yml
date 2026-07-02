@@ -1,0 +1,78 @@
+version: '3.9'
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: aether
+      POSTGRES_PASSWORD: aether_dev
+      POSTGRES_DB: aether
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docs/specs/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aether"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # --- FastAPI Backend ---
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      AETHER_DATABASE_URL: "postgresql+asyncpg://aether:aether_dev@postgres:5432/aether"
+      AETHER_REDIS_URL: "redis://redis:6379/0"
+      AETHER_JWT_SECRET_KEY: "dev-secret-key"
+      AETHER_JWT_ALGORITHM: "HS256"
+      AETHER_ENCRYPTION_KEY: "dev-encryption-key-1234567890"
+      AETHER_ENVIRONMENT: "development"
+      AETHER_CORS_ORIGINS: '["http://localhost:5173","http://localhost:3000"]'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend/app:/app/app:ro
+    restart: unless-stopped
+
+  # --- Vite Frontend (dev) ---
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: dev
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: "http://localhost:8000/api/v1"
+      VITE_WS_URL: "ws://localhost:8000/ws"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend/src:/app/src:ro
+      - ./frontend/index.html:/app/index.html:ro
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:

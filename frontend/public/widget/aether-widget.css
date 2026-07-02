@@ -1,0 +1,11 @@
+/* Aether Widget — Reference CSS (already inlined in widget.js) */
+/* This file is for documentation and standalone customization */
+
+.aether-widget {
+  --aw-primary: #1a73e8;
+  --aw-border-radius: 12px;
+  --aw-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  --aw-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Override these variables in your page CSS to customize the widget */

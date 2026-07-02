@@ -1,0 +1,3177 @@
+openapi: "3.1.0"
+info:
+  title: Aether Platform API
+  description: |
+    White-label SaaS коммуникационная платформа.
+    Multi-tenant, plugin architecture, AI-powered.
+
+    ## Аутентификация
+    - **Bearer JWT**: `Authorization: Bearer <access_token>`
+    - **API Key**: `X-API-Key: ak_...`
+
+    ## Tenant isolation
+    Все tenant-specific эндпоинты требуют JWT с `organisation_id` claim.
+    Admin эндпоинты требуют `is_superadmin = true`.
+
+    ## Rate Limiting
+    - Auth: IP-based (5 login/min, 3 signup/hour)
+    - Tenant: per-plan (60-6000 RPM)
+    - Headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`
+
+    ## Pagination
+    Cursor-based: `?cursor=<last_id>&limit=<1-100>`, default 20.
+    Response: `{"items": [...], "next_cursor": "uuid"}`.
+
+    ## Errors
+    Все ошибки возвращают JSON: `{"error": {"code": "...", "message": "...", "details": {...}}}`
+  version: "1.0.0"
+  contact:
+    name: Aether Platform
+    email: dev@aether.cloud
+
+servers:
+  - url: https://api.aether.cloud/api/v1
+    description: Production
+  - url: http://localhost:8000/api/v1
+    description: Development
+
+security:
+  - bearerAuth: []
+  - apiKeyAuth: []
+
+# ============================================================================
+# SECURITY SCHEMES
+# ============================================================================
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT access token from /auth/login or /auth/refresh
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: 'API key from /auth/api-keys (prefix: ak_)'
+
+  # ============================================================================
+  # COMMON SCHEMAS
+  # ============================================================================
+  schemas:
+    # --- Error ---
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: Machine-readable error code
+              example: "invalid_credentials"
+            message:
+              type: string
+              description: Human-readable error message (localized)
+              example: "Неверный email или пароль"
+            details:
+              type: object
+              description: Field-level validation errors
+
+    ValidationError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, details]
+          properties:
+            code:
+              type: string
+              example: "validation_error"
+            message:
+              type: string
+              example: "Ошибка валидации"
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                  message:
+                    type: string
+
+    # --- Pagination ---
+    PaginatedResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: {}
+        next_cursor:
+          type: string
+          format: uuid
+          nullable: true
+          description: Cursor for next page, null if last page
+        total:
+          type: integer
+          description: Total count (when available)
+          example: 42
+
+    # --- Auth ---
+    SignupRequest:
+      type: object
+      required: [email, company_name]
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 5
+          maxLength: 254
+          description: Email пользователя
+          example: "ivan@logistics.ru"
+        company_name:
+          type: string
+          minLength: 2
+          maxLength: 100
+          description: Название компании
+          example: "Логистика Плюс"
+        locale:
+          type: string
+          default: "ru"
+          enum: [ru, en]
+          description: Язык интерфейса
+
+    LoginRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email для входа
+          example: "ivan@logistics.ru"
+
+    LoginChallenge:
+      type: object
+      description: Ответ на /auth/login — какие методы доступны
+      properties:
+        has_passkey:
+          type: boolean
+          description: Есть ли зарегистрированный passkey
+        has_password:
+          type: boolean
+          description: Установлен ли пароль
+        has_mfa:
+          type: boolean
+          description: Включена ли MFA
+        magic_link_sent:
+          type: boolean
+          description: Отправлена ли magic link (если нет других методов)
+        passkey_options:
+          type: object
+          nullable: true
+          description: WebAuthn PublicKeyCredentialRequestOptions
+        available_providers:
+          type: array
+          items:
+            type: string
+            enum: [google, yandex, vk]
+          description: Доступные OAuth провайдеры
+
+    PasswordLoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+          format: password
+        mfa_code:
+          type: string
+          minLength: 6
+          maxLength: 6
+          pattern: '^\d{6}$'
+          description: TOTP код (если включена MFA)
+
+    MagicLinkRequest:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+          minLength: 32
+          description: Token из magic link URL
+
+    PasskeyBeginRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+
+    PasskeyCompleteRequest:
+      type: object
+      required: [email, credential]
+      properties:
+        email:
+          type: string
+          format: email
+        credential:
+          type: object
+          description: WebAuthn AuthenticatorAssertionResponse
+
+    TokenResponse:
+      type: object
+      required: [access_token, refresh_token, expires_in, token_type, user]
+      properties:
+        access_token:
+          type: string
+          description: JWT access token
+        refresh_token:
+          type: string
+          description: JWT refresh token
+        expires_in:
+          type: integer
+          description: TTL access token в секундах
+          example: 3600
+        token_type:
+          type: string
+          example: "bearer"
+        user:
+          $ref: '#/components/schemas/UserResponse'
+        workspace:
+          $ref: '#/components/schemas/WorkspaceInfo'
+
+    RefreshRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token:
+          type: string
+          description: JWT refresh token
+
+    WorkspaceInfo:
+      type: object
+      required: [organisation_id, slug, name]
+      properties:
+        organisation_id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+          description: URL-safe идентификатор
+        name:
+          type: string
+          description: Название компании
+        logo_url:
+          type: string
+          format: uri
+          nullable: true
+        role:
+          type: string
+          enum: [owner, admin, member, viewer]
+        available_channels:
+          type: array
+          items:
+            type: string
+          description: Доступные типы каналов
+
+    # --- Users ---
+    UserResponse:
+      type: object
+      required: [id, email, full_name, is_active, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        full_name:
+          type: string
+        avatar_url:
+          type: string
+          format: uri
+          nullable: true
+        is_active:
+          type: boolean
+        is_superadmin:
+          type: boolean
+        mfa_enabled:
+          type: boolean
+        last_login_at:
+          type: string
+          format: date-time
+          nullable: true
+        locale:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    OrganisationResponse:
+      type: object
+      required: [id, name, slug, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        logo_url:
+          type: string
+          format: uri
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    MembershipResponse:
+      type: object
+      required: [id, user_id, organisation_id, role]
+      properties:
+        id:
+          type: string
+          format: uuid
+        user:
+          $ref: '#/components/schemas/UserResponse'
+        organisation:
+          $ref: '#/components/schemas/OrganisationResponse'
+        role:
+          type: string
+          enum: [owner, admin, member, viewer]
+        invited_at:
+          type: string
+          format: date-time
+          nullable: true
+        accepted_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    InviteUserRequest:
+      type: object
+      required: [email, role]
+      properties:
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [admin, member, viewer]
+
+    # --- Channels ---
+    ChannelCreate:
+      type: object
+      required: [channel_type, display_name]
+      properties:
+        channel_type:
+          type: string
+          enum: [telegram, web_widget, email, whatsapp, rest_api]
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        config:
+          type: object
+          description: Channel-specific config (bot_token, smtp_host, etc.)
+
+    ChannelResponse:
+      type: object
+      required: [id, channel_type, display_name, is_active, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        channel_type:
+          type: string
+        display_name:
+          type: string
+        is_active:
+          type: boolean
+        priority:
+          type: integer
+        config:
+          type: object
+          description: Non-sensitive config (токены не возвращаются)
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ChannelTestResponse:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+          description: Результат теста
+          example: "Telegram bot token валиден, бот @my_bot активен"
+        latency_ms:
+          type: integer
+          description: Задержка соединения
+
+    # --- Conversations ---
+    ConversationResponse:
+      type: object
+      required: [id, channel_id, status, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+          nullable: true
+        channel_id:
+          type: string
+          format: uuid
+        channel_type:
+          type: string
+        external_user_id:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [active, closed, archived]
+        subject:
+          type: string
+          nullable: true
+        last_message:
+          $ref: '#/components/schemas/MessageResponse'
+        unread_count:
+          type: integer
+          description: Количество непрочитанных сообщений
+        metadata:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    MessageResponse:
+      type: object
+      required: [id, conversation_id, role, content, content_type, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        conversation_id:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [user, assistant, system]
+        content:
+          type: string
+          description: Текст сообщения (Markdown)
+        content_type:
+          type: string
+          enum: [text, html, markdown]
+        intent:
+          type: string
+          nullable: true
+        entities:
+          type: object
+          nullable: true
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttachmentResponse'
+        quick_replies:
+          type: array
+          items:
+            type: string
+          description: AI-предложенные быстрые ответы
+        tokens_used:
+          type: integer
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    AttachmentResponse:
+      type: object
+      required: [id, file_type, file_url, mime_type]
+      properties:
+        id:
+          type: string
+          format: uuid
+        file_type:
+          type: string
+          enum: [image, document, audio, video]
+        file_url:
+          type: string
+          format: uri
+        file_size_bytes:
+          type: integer
+        mime_type:
+          type: string
+
+    SendMessageRequest:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 10000
+          description: Текст сообщения (поддержка Markdown)
+        content_type:
+          type: string
+          default: "text"
+          enum: [text, markdown]
+        attachments:
+          type: array
+          items:
+            type: string
+            format: binary
+          description: Загруженные файлы (multipart)
+
+    QuickReplyRequest:
+      type: object
+      required: [reply_text]
+      properties:
+        reply_text:
+          type: string
+          description: Текст из quick_reply кнопки
+
+    # --- Services/Plugins ---
+    ServicePluginResponse:
+      type: object
+      required: [id, plugin_id, display_name, version, capabilities]
+      properties:
+        id:
+          type: string
+          format: uuid
+        plugin_id:
+          type: string
+          description: Уникальный ID плагина
+          example: "gu12"
+        display_name:
+          type: string
+        description:
+          type: string
+        version:
+          type: string
+        is_builtin:
+          type: boolean
+        is_active:
+          type: boolean
+        capabilities:
+          type: array
+          items:
+            type: string
+        config_schema:
+          type: object
+          description: JSON Schema для валидации конфига
+
+    PluginInstanceResponse:
+      type: object
+      required: [id, plugin_id, display_name, is_active]
+      properties:
+        id:
+          type: string
+          format: uuid
+        plugin_id:
+          type: string
+        display_name:
+          type: string
+        description:
+          type: string
+        is_active:
+          type: boolean
+        config:
+          type: object
+        installed_at:
+          type: string
+          format: date-time
+
+    PluginConfigUpdate:
+      type: object
+      properties:
+        config:
+          type: object
+          description: Конфигурация плагина (валидируется по config_schema)
+
+    # --- Billing ---
+    SubscriptionPlanResponse:
+      type: object
+      required: [id, name, price_monthly_usd]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        price_monthly_usd:
+          type: number
+          format: float
+        price_yearly_usd:
+          type: number
+          format: float
+          nullable: true
+        features:
+          type: array
+          items:
+            type: string
+        limits:
+          type: object
+
+    SubscriptionResponse:
+      type: object
+      required: [id, plan, status, current_period_end]
+      properties:
+        id:
+          type: string
+          format: uuid
+        plan:
+          $ref: '#/components/schemas/SubscriptionPlanResponse'
+        status:
+          type: string
+          enum: [active, trial, cancelled, expired, past_due]
+        trial_ends_at:
+          type: string
+          format: date-time
+          nullable: true
+        current_period_start:
+          type: string
+          format: date-time
+        current_period_end:
+          type: string
+          format: date-time
+        auto_renew:
+          type: boolean
+
+    InvoiceResponse:
+      type: object
+      required: [id, amount_usd, currency, status, due_date, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        amount_usd:
+          type: number
+          format: float
+        currency:
+          type: string
+        status:
+          type: string
+          enum: [draft, open, paid, void, past_due]
+        due_date:
+          type: string
+          format: date
+        paid_at:
+          type: string
+          format: date-time
+          nullable: true
+        invoice_pdf_url:
+          type: string
+          format: uri
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    UsageResponse:
+      type: object
+      properties:
+        api_calls:
+          type: object
+          properties:
+            current: { type: integer }
+            limit: { type: integer }
+        tokens_used:
+          type: object
+          properties:
+            current: { type: integer }
+            limit: { type: integer }
+        storage_bytes:
+          type: object
+          properties:
+            current: { type: integer }
+            limit: { type: integer }
+        active_users:
+          type: object
+          properties:
+            current: { type: integer }
+            limit: { type: integer }
+        conversations_today:
+          type: object
+          properties:
+            current: { type: integer }
+            limit: { type: integer }
+
+    # --- Tenant/Admin ---
+    TenantResponse:
+      type: object
+      required: [id, slug, name, is_active, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        name:
+          type: string
+        domain:
+          type: string
+          nullable: true
+        logo_url:
+          type: string
+          format: uri
+          nullable: true
+        primary_color:
+          type: string
+        is_active:
+          type: boolean
+        settings:
+          type: object
+        subscription:
+          $ref: '#/components/schemas/SubscriptionResponse'
+        created_at:
+          type: string
+          format: date-time
+
+    TenantCreate:
+      type: object
+      required: [slug, name, plan_id]
+      properties:
+        slug:
+          type: string
+          minLength: 3
+          maxLength: 63
+          pattern: '^[a-z0-9-]+$'
+          description: URL-safe subdomain
+        name:
+          type: string
+          minLength: 2
+          maxLength: 255
+        plan_id:
+          type: string
+          enum: [free, starter, professional, enterprise]
+        email:
+          type: string
+          format: email
+          description: Email владельца
+        password:
+          type: string
+          minLength: 8
+          description: Пароль владельца (если не указан — magic link)
+
+    TenantConfigResponse:
+      type: object
+      properties:
+        branding:
+          type: object
+          properties:
+            logo_url: { type: string, format: uri, nullable: true }
+            primary_color: { type: string }
+            company_name: { type: string }
+        features:
+          type: object
+          additionalProperties: { type: boolean }
+          description: Фича-флаги
+        timezone: { type: string }
+        locale: { type: string }
+
+    TenantConfigUpdate:
+      type: object
+      properties:
+        branding:
+          type: object
+          properties:
+            logo_url: { type: string, format: uri }
+            primary_color: { type: string, pattern: '^#[0-9a-fA-F]{6}$' }
+            company_name: { type: string }
+        timezone: { type: string }
+        locale: { type: string, enum: [ru, en] }
+
+    TenantStatsResponse:
+      type: object
+      properties:
+        total_conversations: { type: integer }
+        active_conversations: { type: integer }
+        total_messages: { type: integer }
+        messages_today: { type: integer }
+        api_calls_today: { type: integer }
+        tokens_used_today: { type: integer }
+        cost_today_usd: { type: number, format: float }
+        active_users: { type: integer }
+
+    # --- Admin ---
+    HealthResponse:
+      type: object
+      required: [status, version]
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded, down]
+        version:
+          type: string
+          example: "1.0.0"
+        checks:
+          type: object
+          properties:
+            database:
+              type: object
+              properties:
+                status: { type: string, enum: [ok, error] }
+                latency_ms: { type: integer }
+            redis:
+              type: object
+              properties:
+                status: { type: string, enum: [ok, error] }
+                latency_ms: { type: integer }
+            celery:
+              type: object
+              properties:
+                status: { type: string, enum: [ok, error] }
+                workers: { type: integer }
+            drivers:
+              type: object
+              properties:
+                status: { type: string, enum: [ok, degraded, down] }
+                healthy: { type: integer }
+                total: { type: integer }
+
+    PlatformStatsResponse:
+      type: object
+      properties:
+        total_tenants: { type: integer }
+        active_tenants: { type: integer }
+        trial_tenants: { type: integer }
+        mrr_usd: { type: number, format: float }
+        daily_active_users: { type: integer }
+        api_calls_per_hour: { type: integer }
+        total_conversations: { type: integer }
+        driver_health:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              requests_total: { type: integer }
+              success_rate: { type: number }
+              latency_avg_ms: { type: number }
+
+    PlanCreate:
+      type: object
+      required: [id, name, price_monthly_usd]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 31
+          pattern: '^[a-z_]+$'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+        price_monthly_usd:
+          type: number
+          minimum: 0
+        price_yearly_usd:
+          type: number
+          minimum: 0
+        features:
+          type: array
+          items: { type: string }
+        limits:
+          type: object
+
+    ApiKeyResponse:
+      type: object
+      required: [id, name, key_prefix, scopes, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        key_prefix:
+          type: string
+          description: Первые 8 символов для идентификации
+          example: "ak_a1b2c3d4"
+        scopes:
+          type: array
+          items: { type: string }
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    ApiKeyCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        scopes:
+          type: array
+          items: { type: string }
+          default: ["*"]
+        expires_at:
+          type: string
+          format: date-time
+
+    ApiKeyCreated:
+      type: object
+      required: [id, name, key, key_prefix]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        key:
+          type: string
+          description: Полный API ключ — показывается ТОЛЬКО при создании
+          example: "ak_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0"
+        key_prefix:
+          type: string
+
+    # --- Audit ---
+    AuditLogResponse:
+      type: object
+      required: [id, action, resource, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        user:
+          $ref: '#/components/schemas/UserResponse'
+        action:
+          type: string
+        resource:
+          type: string
+        resource_id:
+          type: string
+          format: uuid
+          nullable: true
+        details:
+          type: object
+        ip_address:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+  # ============================================================================
+  # COMMON PARAMETERS
+  # ============================================================================
+  parameters:
+    CursorParam:
+      name: cursor
+      in: query
+      schema:
+        type: string
+        format: uuid
+      description: Cursor для пагинации (id последнего элемента предыдущей страницы)
+    LimitParam:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+      description: Количество элементов на странице
+
+  # ============================================================================
+  # COMMON RESPONSES
+  # ============================================================================
+  responses:
+    401Unauthorized:
+      description: Не авторизован (JWT истёк или отсутствует)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: "unauthorized"
+              message: "Требуется аутентификация"
+    403Forbidden:
+      description: Недостаточно прав
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    404NotFound:
+      description: Ресурс не найден
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    422ValidationError:
+      description: Ошибка валидации
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationError'
+    429RateLimited:
+      description: Превышен лимит запросов
+      headers:
+        X-RateLimit-Limit:
+          schema: { type: integer }
+        X-RateLimit-Remaining:
+          schema: { type: integer }
+        X-RateLimit-Reset:
+          schema: { type: integer }
+        Retry-After:
+          schema: { type: integer }
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: "rate_limited"
+              message: "Слишком много запросов. Попробуйте через 30 секунд."
+
+# ============================================================================
+# PATHS
+# ============================================================================
+paths:
+  # ==========================================================================
+  # HEALTH (public)
+  # ==========================================================================
+  /health:
+    get:
+      operationId: healthCheck
+      summary: Публичный health check
+      description: Проверка здоровья сервиса без аутентификации. Используется Docker/K8s.
+      tags: [Health]
+      security: []
+      responses:
+        '200':
+          description: Сервис здоров
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: "ok"
+                version: "1.0.0"
+                checks:
+                  database: { status: "ok", latency_ms: 3 }
+                  redis: { status: "ok", latency_ms: 1 }
+        '503':
+          description: Сервис деградирован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  # ==========================================================================
+  # AUTH
+  # ==========================================================================
+  /auth/signup:
+    post:
+      operationId: signup
+      summary: Регистрация нового пользователя и tenant'а
+      description: Создаёт пользователя, организацию и отправляет welcome email.
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupRequest'
+      responses:
+        '201':
+          description: Пользователь и организация созданы
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '400':
+          $ref: '#/components/responses/422ValidationError'
+        '429':
+          $ref: '#/components/responses/429RateLimited'
+
+  /auth/login:
+    post:
+      operationId: login
+      summary: Начать процесс входа
+      description: Возвращает доступные методы входа для email. Если пароля/passkey нет — автоматически отправляет magic link.
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Доступные методы
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginChallenge'
+        '400':
+          $ref: '#/components/responses/422ValidationError'
+        '429':
+          $ref: '#/components/responses/429RateLimited'
+
+  /auth/login/password:
+    post:
+      operationId: loginPassword
+      summary: Вход по паролю
+      description: Вход с email + пароль (+ MFA код если включена).
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordLoginRequest'
+      responses:
+        '200':
+          description: Успешный вход
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '400':
+          $ref: '#/components/responses/422ValidationError'
+        '429':
+          $ref: '#/components/responses/429RateLimited'
+
+  /auth/login/magic-link:
+    post:
+      operationId: loginMagicLink
+      summary: Вход по magic link токену
+      description: Обменивает magic link токен на JWT пару.
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MagicLinkRequest'
+      responses:
+        '200':
+          description: Успешный вход
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '429':
+          $ref: '#/components/responses/429RateLimited'
+
+  /auth/login/passkey/begin:
+    post:
+      operationId: loginPasskeyBegin
+      summary: Начать passkey аутентификацию
+      description: Возвращает WebAuthn PublicKeyCredentialRequestOptions.
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasskeyBeginRequest'
+      responses:
+        '200':
+          description: WebAuthn опции
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  passkey_options:
+                    type: object
+        '400':
+          $ref: '#/components/responses/422ValidationError'
+        '429':
+          $ref: '#/components/responses/429RateLimited'
+
+  /auth/login/passkey/complete:
+    post:
+      operationId: loginPasskeyComplete
+      summary: Завершить passkey аутентификацию
+      description: Проверяет WebAuthn AuthenticatorAssertionResponse.
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasskeyCompleteRequest'
+      responses:
+        '200':
+          description: Успешный вход
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '429':
+          $ref: '#/components/responses/429RateLimited'
+
+  /auth/refresh:
+    post:
+      operationId: refreshToken
+      summary: Обновить access токен
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: Новая пара токенов
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+
+  /auth/logout:
+    post:
+      operationId: logout
+      summary: Выход (инвалидация refresh токена)
+      tags: [Auth]
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Токен инвалидирован
+
+  /auth/sso/providers:
+    get:
+      operationId: listSsoProviders
+      summary: Список OAuth провайдеров
+      tags: [Auth]
+      security: []
+      responses:
+        '200':
+          description: Список провайдеров
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  providers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          enum: [google, yandex, vk]
+                        name:
+                          type: string
+                        auth_url:
+                          type: string
+                          format: uri
+
+  # ==========================================================================
+  # USERS
+  # ==========================================================================
+  /users/me:
+    get:
+      operationId: getCurrentUser
+      summary: Профиль текущего пользователя
+      tags: [Users]
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      responses:
+        '200':
+          description: Профиль пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+    patch:
+      operationId: updateCurrentUser
+      summary: Обновить профиль
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                full_name:
+                  type: string
+                  minLength: 1
+                  maxLength: 255
+                locale:
+                  type: string
+                  enum: [ru, en]
+                avatar_url:
+                  type: string
+                  format: uri
+      responses:
+        '200':
+          description: Обновлённый профиль
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '422':
+          $ref: '#/components/responses/422ValidationError'
+    delete:
+      operationId: deactivateCurrentUser
+      summary: Деактивировать аккаунт
+      description: Мягкое удаление — аккаунт помечается is_active=false.
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Аккаунт деактивирован
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+
+  /users/me/mfa/setup:
+    post:
+      operationId: setupMfa
+      summary: Начать настройку MFA
+      description: Возвращает секрет и QR-код для настройки TOTP.
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Данные для настройки MFA
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  secret:
+                    type: string
+                    description: TOTP secret (base32)
+                  qr_code_url:
+                    type: string
+                    format: uri
+                    description: QR-код для Google Authenticator
+                  recovery_codes:
+                    type: array
+                    items:
+                      type: string
+                    description: Коды восстановления (показаны ОДИН раз)
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+
+  /users/me/mfa/verify:
+    post:
+      operationId: verifyMfa
+      summary: Подтвердить MFA
+      description: Верифицирует TOTP код и включает MFA.
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+                  minLength: 6
+                  maxLength: 6
+                  pattern: '^\d{6}$'
+                  description: TOTP код из приложения
+      responses:
+        '200':
+          description: MFA включён
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mfa_enabled:
+                    type: boolean
+                    example: true
+        '400':
+          description: Неверный код
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+
+  /users/me/mfa:
+    delete:
+      operationId: disableMfa
+      summary: Отключить MFA
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+                  minLength: 6
+                  maxLength: 6
+                  pattern: '^\d{6}$'
+      responses:
+        '204':
+          description: MFA отключён
+        '400':
+          $ref: '#/components/responses/422ValidationError'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+
+  # ==========================================================================
+  # ORGANISATIONS
+  # ==========================================================================
+  /organisations:
+    get:
+      operationId: listOrganisations
+      summary: Список организаций
+      description: Для обычных пользователей — только их организации. Для superadmin — все.
+      tags: [Organisations]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Список организаций
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/OrganisationResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+    post:
+      operationId: createOrganisation
+      summary: Создать организацию (admin)
+      tags: [Organisations]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, slug]
+              properties:
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 255
+                slug:
+                  type: string
+                  minLength: 3
+                  maxLength: 63
+                  pattern: '^[a-z0-9-]+$'
+      responses:
+        '201':
+          description: Организация создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganisationResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '422':
+          $ref: '#/components/responses/422ValidationError'
+
+  /organisations/{org_id}:
+    get:
+      operationId: getOrganisation
+      summary: Детали организации
+      tags: [Organisations]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Детали организации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganisationResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+    patch:
+      operationId: updateOrganisation
+      summary: Обновить организацию
+      tags: [Organisations]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 255
+                logo_url:
+                  type: string
+                  format: uri
+      responses:
+        '200':
+          description: Обновлённая организация
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganisationResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '422':
+          $ref: '#/components/responses/422ValidationError'
+    delete:
+      operationId: deleteOrganisation
+      summary: Удалить организацию
+      tags: [Organisations]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Организация удалена
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+
+  /organisations/{org_id}/members:
+    get:
+      operationId: listMembers
+      summary: Список участников организации
+      tags: [Organisations]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Список участников
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/MembershipResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+
+  /organisations/{org_id}/invites:
+    post:
+      operationId: inviteUser
+      summary: Пригласить пользователя
+      tags: [Organisations]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteUserRequest'
+      responses:
+        '201':
+          description: Приглашение отправлено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MembershipResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '422':
+          $ref: '#/components/responses/422ValidationError'
+
+  /organisations/{org_id}/members/{user_id}:
+    delete:
+      operationId: removeMember
+      summary: Удалить участника
+      tags: [Organisations]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Участник удалён
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+
+  /organisations/{org_id}/members/{user_id}/role:
+    patch:
+      operationId: updateMemberRole
+      summary: Изменить роль участника
+      tags: [Organisations]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role:
+                  type: string
+                  enum: [admin, member, viewer]
+      responses:
+        '200':
+          description: Роль обновлена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MembershipResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '422':
+          $ref: '#/components/responses/422ValidationError'
+
+  # ==========================================================================
+  # API KEYS
+  # ==========================================================================
+  /users/me/api-keys:
+    get:
+      operationId: listApiKeys
+      summary: Список API ключей
+      tags: [API Keys]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Список ключей
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ApiKeyResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+    post:
+      operationId: createApiKey
+      summary: Создать API ключ
+      description: Возвращает полный ключ ТОЛЬКО при создании. Сохраните его.
+      tags: [API Keys]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiKeyCreate'
+      responses:
+        '201':
+          description: Ключ создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKeyCreated'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '422':
+          $ref: '#/components/responses/422ValidationError'
+
+  /users/me/api-keys/{key_id}:
+    delete:
+      operationId: deleteApiKey
+      summary: Удалить API ключ
+      tags: [API Keys]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: key_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Ключ удалён
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+  # ==========================================================================
+  # CHANNELS
+  # ==========================================================================
+  /channels:
+    get:
+      operationId: listChannels
+      summary: Список каналов
+      tags: [Channels]
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Список каналов
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ChannelResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+    post:
+      operationId: createChannel
+      summary: Подключить канал
+      tags: [Channels]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChannelCreate'
+      responses:
+        '201':
+          description: Канал создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '422':
+          $ref: '#/components/responses/422ValidationError'
+
+  /channels/{channel_id}:
+    get:
+      operationId: getChannel
+      summary: Детали канала
+      tags: [Channels]
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: channel_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Детали канала
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+    patch:
+      operationId: updateChannel
+      summary: Обновить канал
+      tags: [Channels]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: channel_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                display_name:
+                  type: string
+                  minLength: 1
+                  maxLength: 255
+                is_active:
+                  type: boolean
+                config:
+                  type: object
+      responses:
+        '200':
+          description: Канал обновлён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '422':
+          $ref: '#/components/responses/422ValidationError'
+    delete:
+      operationId: deleteChannel
+      summary: Удалить канал
+      tags: [Channels]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: channel_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Канал удалён
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+
+  /channels/{channel_id}/test:
+    post:
+      operationId: testChannel
+      summary: Протестировать подключение канала
+      tags: [Channels]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: channel_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Результат теста
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChannelTestResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+
+  # ==========================================================================
+  # CONVERSATIONS
+  # ==========================================================================
+  /conversations:
+    get:
+      operationId: listConversations
+      summary: Список диалогов
+      tags: [Conversations]
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, closed, archived]
+          description: Фильтр по статусу
+        - name: channel_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Фильтр по каналу
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Список диалогов
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ConversationResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+
+  /conversations/{conversation_id}:
+    get:
+      operationId: getConversation
+      summary: Детали диалога
+      tags: [Conversations]
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: conversation_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Детали диалога
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+    patch:
+      operationId: updateConversation
+      summary: Изменить статус диалога
+      tags: [Conversations]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: conversation_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [closed, archived]
+      responses:
+        '200':
+          description: Статус обновлён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+
+  /conversations/{conversation_id}/messages:
+    get:
+      operationId: listMessages
+      summary: История сообщений
+      tags: [Conversations]
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: conversation_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: История сообщений
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/MessageResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+    post:
+      operationId: sendMessage
+      summary: Отправить сообщение
+      tags: [Conversations]
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: conversation_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMessageRequest'
+      responses:
+        '201':
+          description: Сообщение отправлено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '422':
+          $ref: '#/components/responses/422ValidationError'
+
+  /conversations/{conversation_id}/messages/{message_id}/quick-reply:
+    post:
+      operationId: sendQuickReply
+      summary: Быстрый ответ
+      tags: [Conversations]
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: conversation_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: message_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuickReplyRequest'
+      responses:
+        '201':
+          description: Быстрый ответ отправлен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+
+  /conversations/{conversation_id}/messages/{message_id}/attachments:
+    post:
+      operationId: uploadAttachment
+      summary: Загрузить вложение
+      tags: [Conversations]
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: conversation_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: message_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Файл вложения (max 10 MB)
+      responses:
+        '201':
+          description: Вложение загружено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttachmentResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '413':
+          description: Файл слишком большой
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ==========================================================================
+  # SERVICES (Plugins)
+  # ==========================================================================
+  /services/plugins:
+    get:
+      operationId: listServicePlugins
+      summary: Доступные плагины
+      tags: [Services]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Список плагинов
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ServicePluginResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+
+  /services/plugins/{plugin_id}:
+    get:
+      operationId: getServicePlugin
+      summary: Детали плагина
+      tags: [Services]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: plugin_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Детали плагина
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServicePluginResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+
+  /organisations/{org_id}/plugins:
+    get:
+      operationId: listInstalledPlugins
+      summary: Установленные плагины организации
+      tags: [Services]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Список установленных плагинов
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PluginInstanceResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+    post:
+      operationId: installPlugin
+      summary: Установить плагин
+      tags: [Services]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [plugin_id]
+              properties:
+                plugin_id:
+                  type: string
+      responses:
+        '201':
+          description: Плагин установлен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginInstanceResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '422':
+          $ref: '#/components/responses/422ValidationError'
+
+  /organisations/{org_id}/plugins/{instance_id}:
+    patch:
+      operationId: updatePluginConfig
+      summary: Настроить плагин
+      tags: [Services]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: instance_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PluginConfigUpdate'
+      responses:
+        '200':
+          description: Конфигурация обновлена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginInstanceResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '422':
+          $ref: '#/components/responses/422ValidationError'
+    delete:
+      operationId: uninstallPlugin
+      summary: Удалить плагин
+      tags: [Services]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: instance_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Плагин удалён
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+
+  # ==========================================================================
+  # BILLING
+  # ==========================================================================
+  /billing/plans:
+    get:
+      operationId: listPlans
+      summary: Доступные тарифы (публичный)
+      tags: [Billing]
+      security: []
+      responses:
+        '200':
+          description: Список тарифов
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SubscriptionPlanResponse'
+
+  /billing/subscription:
+    get:
+      operationId: getSubscription
+      summary: Текущая подписка
+      tags: [Billing]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Детали подписки
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+
+  /billing/subscription/upgrade:
+    post:
+      operationId: upgradeSubscription
+      summary: Сменить тариф
+      tags: [Billing]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [plan_id]
+              properties:
+                plan_id:
+                  type: string
+      responses:
+        '200':
+          description: Тариф обновлён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '422':
+          $ref: '#/components/responses/422ValidationError'
+
+  /billing/subscription/cancel:
+    post:
+      operationId: cancelSubscription
+      summary: Отменить подписку
+      tags: [Billing]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Подписка отменена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+
+  /billing/invoices:
+    get:
+      operationId: listInvoices
+      summary: Счета
+      tags: [Billing]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Список счетов
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/InvoiceResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+
+  /billing/invoices/{invoice_id}:
+    get:
+      operationId: getInvoice
+      summary: Детали счёта
+      tags: [Billing]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: invoice_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Детали счёта
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvoiceResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+
+  /billing/invoices/{invoice_id}/pdf:
+    get:
+      operationId: getInvoicePdf
+      summary: PDF счёта
+      tags: [Billing]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: invoice_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: PDF файл
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+
+  /billing/usage:
+    get:
+      operationId: getUsage
+      summary: Статистика использования
+      tags: [Billing]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Текущее использование
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsageResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+
+  # ==========================================================================
+  # TENANTS (user-scoped)
+  # ==========================================================================
+  /tenants/current/config:
+    get:
+      operationId: getTenantConfig
+      summary: Конфигурация текущего tenant'а
+      tags: [Tenants]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Конфигурация
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantConfigResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+    patch:
+      operationId: updateTenantConfig
+      summary: Обновить конфигурацию tenant'а
+      tags: [Tenants]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TenantConfigUpdate'
+      responses:
+        '200':
+          description: Конфигурация обновлена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantConfigResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '422':
+          $ref: '#/components/responses/422ValidationError'
+
+  /tenants/current/stats:
+    get:
+      operationId: getTenantStats
+      summary: Статистика tenant'а
+      tags: [Tenants]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Статистика
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantStatsResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+
+  # ==========================================================================
+  # ADMIN
+  # ==========================================================================
+  /admin/tenants:
+    get:
+      operationId: adminListTenants
+      summary: Все tenant'ы (superadmin)
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Список tenant'ов
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/TenantResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+    post:
+      operationId: adminCreateTenant
+      summary: Создать tenant'а (superadmin)
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TenantCreate'
+      responses:
+        '201':
+          description: Tenant создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '422':
+          $ref: '#/components/responses/422ValidationError'
+
+  /admin/tenants/{tenant_id}:
+    get:
+      operationId: adminGetTenant
+      summary: Детали tenant'а (superadmin)
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Детали tenant'а
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+    patch:
+      operationId: adminUpdateTenant
+      summary: Обновить tenant'а (superadmin)
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 255
+                is_active:
+                  type: boolean
+                settings:
+                  type: object
+      responses:
+        '200':
+          description: Tenant обновлён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+    delete:
+      operationId: adminDeleteTenant
+      summary: Удалить tenant'а (superadmin)
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Tenant удалён
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+
+  /admin/tenants/{tenant_id}/stats:
+    get:
+      operationId: adminGetTenantStats
+      summary: Статистика tenant'а (superadmin)
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Статистика
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantStatsResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+
+  /admin/tenants/{tenant_id}/config:
+    get:
+      operationId: adminGetTenantConfig
+      summary: Конфигурация tenant'а (superadmin)
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Конфигурация
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantConfigResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+    patch:
+      operationId: adminUpdateTenantConfig
+      summary: Обновить конфигурацию tenant'а (superadmin)
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TenantConfigUpdate'
+      responses:
+        '200':
+          description: Конфигурация обновлена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantConfigResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '422':
+          $ref: '#/components/responses/422ValidationError'
+
+  /admin/stats:
+    get:
+      operationId: adminGetPlatformStats
+      summary: Статистика платформы (superadmin)
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Статистика платформы
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformStatsResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+
+  /admin/plans:
+    get:
+      operationId: adminListPlans
+      summary: Управление тарифами (superadmin)
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Список тарифов
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SubscriptionPlanResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+    post:
+      operationId: adminCreatePlan
+      summary: Создать тариф (superadmin)
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlanCreate'
+      responses:
+        '201':
+          description: Тариф создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionPlanResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '422':
+          $ref: '#/components/responses/422ValidationError'
+
+  /admin/plans/{plan_id}:
+    patch:
+      operationId: adminUpdatePlan
+      summary: Обновить тариф (superadmin)
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: plan_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 255
+                description:
+                  type: string
+                price_monthly_usd:
+                  type: number
+                  minimum: 0
+                price_yearly_usd:
+                  type: number
+                  minimum: 0
+                features:
+                  type: array
+                  items:
+                    type: string
+                limits:
+                  type: object
+      responses:
+        '200':
+          description: Тариф обновлён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionPlanResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+    delete:
+      operationId: adminDeletePlan
+      summary: Удалить тариф (superadmin)
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: plan_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Тариф удалён
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+
+  /admin/audit-logs:
+    get:
+      operationId: adminAuditLogs
+      summary: Аудит-лог (superadmin)
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: action
+          in: query
+          schema:
+            type: string
+          description: Фильтр по действию
+        - name: resource
+          in: query
+          schema:
+            type: string
+          description: Фильтр по ресурсу
+        - name: user_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Фильтр по пользователю
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Начало периода
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Конец периода
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Аудит-лог
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AuditLogResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
