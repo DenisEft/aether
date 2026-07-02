@@ -1,11 +1,15 @@
+"""Security utilities: JWT, password hashing, API keys, MFA."""
+
 from __future__ import annotations
 
 import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
+from pydantic import BaseModel
 
 from app.config import settings
 
@@ -72,3 +76,36 @@ def generate_api_key() -> tuple[str, str]:
 def hash_api_key(key: str) -> str:
     """SHA-256 hash of an API key for secure storage."""
     return hashlib.sha256(key.encode()).hexdigest()
+
+
+# ── MFA utilities ─────────────────────────────────────────
+def generate_mfa_secret() -> str:
+    """Generate a base32 encoded secret for TOTP."""
+    return secrets.token_urlsafe(32)
+
+
+def verify_mfa_code(secret: str, code: str) -> bool:
+    """Verify a TOTP code against the secret."""
+    import pyotp
+    totp = pyotp.TOTP(secret)
+    return totp.verify(code, valid_window=1)
+
+
+def generate_backup_codes(count: int = 10) -> list[str]:
+    """Generate backup codes for MFA."""
+    return [secrets.token_urlsafe(16) for _ in range(count)]
+
+
+def validate_password_strength(password: str) -> bool:
+    """Validate password strength."""
+    # Check for minimum 12 characters
+    if len(password) < 12:
+        return False
+    
+    # Check for uppercase, lowercase, digit, and special character
+    has_upper = any(c.isupper() for c in password)
+    has_lower = any(c.islower() for c in password)
+    has_digit = any(c.isdigit() for c in password)
+    has_special = any(not c.isalnum() for c in password)
+    
+    return all([has_upper, has_lower, has_digit, has_special])
