@@ -8,6 +8,8 @@ from uuid import uuid4
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.services.document_service import DocumentCreate, DocumentService
+from app.services.template_service import TemplateService, TemplateCreate
+from app.models.documents import Template
 
 
 @pytest.fixture
@@ -46,3 +48,63 @@ async def sample_document(document_service, test_tenant_id):
         source="manual",
     )
     return await document_service.create(data)
+
+
+@pytest.fixture
+async def template_service(async_session):
+    """TemplateService with a test session."""
+    return TemplateService(async_session)
+
+
+@pytest.fixture
+async def test_template(template_service, test_tenant_id):
+    """A pre-created template for tests."""
+    data = TemplateCreate(
+        tenant_id=test_tenant_id,
+        name="Test Template",
+        document_type="order",
+        fields=[
+            {"key": "customer_name", "label": "Customer Name", "type": "text", "required": True},
+            {"key": "amount", "label": "Amount", "type": "number", "required": False},
+        ],
+        description="Test template for unit tests",
+        icon="📦",
+    )
+    return await template_service.create(data)
+
+
+@pytest.fixture
+def test_template_data(test_tenant_id):
+    """Dict-based test template data for create tests."""
+    return {
+        "tenant_id": test_tenant_id,
+        "name": "Test Template",
+        "document_type": "order",
+        "fields": [
+            {"key": "customer_name", "label": "Customer Name", "type": "text", "required": True},
+            {"key": "amount", "label": "Amount", "type": "number", "required": False},
+        ],
+        "description": "Test template for unit tests",
+        "icon": "📦",
+        "statuses": [
+            {"key": "new", "label": "Новый", "color": "#6b7280", "is_initial": True}
+        ],
+    }
+
+
+@pytest.fixture
+async def system_template(template_service):
+    """A pre-created system template (tenant_id=None)."""
+    data = TemplateCreate(
+        tenant_id=None,
+        name="System Template",
+        document_type="invoice",
+        fields=[
+            {"key": "invoice_number", "label": "Invoice Number", "type": "text", "required": True},
+            {"key": "total", "label": "Total", "type": "number", "required": True},
+        ],
+        description="System template",
+        icon="💰",
+        is_system=True,
+    )
+    return await template_service.create(data)

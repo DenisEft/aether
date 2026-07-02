@@ -16,6 +16,7 @@ from app.api.v1.services import router as services_router
 from app.api.v1.telegram_webhook import router as telegram_webhook_router
 from app.api.v1.tenants import router as tenants_router
 from app.api.v1.users import router as users_router
+from app.api.v1.templates import router as templates_router
 
 router = APIRouter(prefix="/v1")
 router.include_router(health_router)
@@ -28,5 +29,6 @@ router.include_router(conversations_router)
 router.include_router(ai_router, prefix="/ai")
 router.include_router(services_router)
 router.include_router(billing_router)
+router.include_router(templates_router)
 router.include_router(tenants_router)
 router.include_router(telegram_webhook_router, prefix="/webhooks")
