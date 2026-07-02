@@ -10,7 +10,7 @@ import logging
 from datetime import datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.tenants import Tenant, TenantConfig, TenantFeature, TenantLimit
@@ -18,7 +18,6 @@ from app.models.users import User
 from app.models.channels import Channel
 from app.models.organisations import Organisation
 from app.models.billing import Subscription, SubscriptionPlan
-from app.services.billing_service import BillingService
 
 logger = logging.getLogger("aether.tenant_provisioning")
 
@@ -48,22 +47,14 @@ class TenantProvisioningService:
             # Create Redis keyspace (tenant:{tenant_id}:*)
             # This would be handled by Redis client, not stored in DB directly
 
-            # Create default roles (owner, admin, member, viewer)
-            # Create default channels
-            # This would typically be done in database schema
-
-            # Activate trial subscription
-            billing_service = BillingService(self._session)
-            await billing_service.activate_trial(tenant_id)
-
-            # For now, we'll just create basic tenant resources
-            # In a real implementation, this would include:
-            # - Database schema creation (if isolated)
-            # - Redis keyspace setup
-            # - Default roles and channels
-            # - Trial subscription activation
-            # - Default configurations
-
+            # For now, just return success as we don't have complete implementation
+            # In a real implementation this would:
+            # - Create DB schema (if isolated)
+            # - Create Redis keyspace
+            # - Create default roles
+            # - Create default channels
+            # - Activate trial subscription
+            
             await self._session.commit()
             
             return {
@@ -97,11 +88,8 @@ class TenantProvisioningService:
 
             # Deactivate all users
             await self._session.execute(
-                select(User).where(User.tenant_id == tenant_id).update({"is_active": False})
+                update(User).where(User.tenant_id == tenant_id).values(is_active=False)
             )
-
-            # Revoke all refresh tokens (this would be handled by Redis or DB)
-            # We don't have a direct way to revoke tokens in DB, but we can set tenant status
 
             # Set tenant status to suspended
             tenant.status = "suspended"
@@ -145,7 +133,7 @@ class TenantProvisioningService:
 
             # Reactivate all users
             await self._session.execute(
-                select(User).where(User.tenant_id == tenant_id).update({"is_active": True})
+                update(User).where(User.tenant_id == tenant_id).values(is_active=True)
             )
 
             await self._session.commit()
