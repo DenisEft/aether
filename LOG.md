@@ -10,7 +10,7 @@
 - ✅ 103/103 tests green
 - ✅ Audit: removed logistics contamination from enums/models (commit db88fd9)
 
-**Next:** Integrate billing with AI Pipeline (charge tokens on real AI requests)
+**Next:** WebSocket streaming billing (оценка токенов по длине текста, т.к. generate_stream не возвращает usage)
 
 ## 2026-06-25 04:17 UTC — Stage 0: Analysis Complete
 - Stack chosen: Python 3.12+ FastAPI (8.5/10 score vs Go 6.5, Node 7.5)

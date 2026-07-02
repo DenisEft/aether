@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
 
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import select, func
 
 from app.core.deps import DBDep, CurrentActiveUser, CurrentSuperuser
+
+logger = logging.getLogger("aether.api.ai")
 from app.models.ai import (
     AIModel,
     DriverConfig,
@@ -760,6 +763,7 @@ class InferencePayload(BaseModel):
 @router.post("/infer")
 async def run_inference(
     payload: InferencePayload,
+    db: DBDep,
     current_user: CurrentActiveUser,
 ):
     """Run AI inference through the smart router."""
@@ -770,6 +774,24 @@ async def run_inference(
         max_tokens=payload.max_tokens,
         strategy=payload.strategy,
     )
+
+    # Record token usage for billing (non-blocking — don't fail the response)
+    if response.usage and response.usage.get("total_tokens", 0) > 0:
+        try:
+            from app.services.billing_middleware import BillingAIMiddleware
+            middleware = BillingAIMiddleware(db)
+            await middleware.check_and_record(
+                tenant_id=current_user.tenant_id,
+                prompt_tokens=response.usage.get("prompt_tokens", 0),
+                completion_tokens=response.usage.get("completion_tokens", 0),
+                model=response.model,
+                driver_type=response.driver_type,
+            )
+        except Exception:
+            # Billing failure must never block AI responses
+            logger.exception("Billing middleware failed")
+            pass
+
     return {
         "model": response.model,
         "driver": response.driver_type,
