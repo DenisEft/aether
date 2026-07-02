@@ -60,6 +60,30 @@ class Settings(BaseSettings):
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
 
+    # ── AI / Local Model Driver ──────────────────────────────
+    AI_LOCAL_DRIVER_URL: str = Field(
+        default="http://localhost:8085",
+        description="Base URL for local llama.cpp driver",
+    )
+    AI_LOCAL_DRIVER_MODEL_ID: str = Field(
+        default="qwen3.6-35b-a3b",
+        description="Model ID for local driver registration",
+    )
+    AI_LOCAL_DRIVER_ENABLED: bool = Field(
+        default=True,
+        description="Enable local AI driver on startup",
+    )
+
+    # ── Celery ───────────────────────────────────────────────
+    CELERY_BROKER_URL: str = Field(
+        default="",
+        description="Celery broker URL (defaults to REDIS_URL when empty)",
+    )
+    CELERY_RESULT_BACKEND: str = Field(
+        default="",
+        description="Celery result backend (defaults to REDIS_URL when empty)",
+    )
+
     # ── Environment ───────────────────────────────────────────
     ENVIRONMENT: str = Field(
         default="development",

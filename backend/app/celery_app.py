@@ -18,8 +18,14 @@ logger = logging.getLogger(__name__)
 
 
 def create_celery() -> Celery:
-    broker_url = settings.CELERY_BROKER_URL or settings.REDIS_URL or "redis://localhost:6379/0"
-    result_backend = settings.CELERY_RESULT_BACKEND or settings.REDIS_URL or "redis://localhost:6379/0"
+    broker_url = settings.CELERY_BROKER_URL or settings.REDIS_URL
+    result_backend = settings.CELERY_RESULT_BACKEND or settings.REDIS_URL
+
+    if not broker_url:
+        raise RuntimeError(
+            "Neither CELERY_BROKER_URL nor REDIS_URL is configured. "
+            "Set AETHER_REDIS_URL or AETHER_CELERY_BROKER_URL in .env"
+        )
 
     app = Celery(
         "aether",

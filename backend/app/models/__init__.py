@@ -21,6 +21,14 @@ from app.models.conversations import Conversation, Message, MessageAttachment
 from app.models.ai import Intent, IntentTemplate, EntityType, AIModel, DriverConfig, DriverMetric, KnowledgeBase, KnowledgeDocument
 from app.models.services import ServiceDefinition, ServiceInstance, ServiceBinding, ServiceExecution
 from app.models.billing import SubscriptionPlan, Subscription, Invoice, UsageRecord, PaymentMethod
+from app.models.documents import (
+    Document,
+    DocumentVersion,
+    DocumentOperation,
+    DocumentTag,
+    Tag,
+    Template,
+)
 from app.models.audit import AuditLog, ApiCallLog
 
 __all__ = [
@@ -45,6 +53,8 @@ __all__ = [
     "Intent", "IntentTemplate", "EntityType",
     "AIModel", "DriverConfig", "DriverMetric",
     "KnowledgeBase", "KnowledgeDocument",
+    # Documents
+    "Document", "DocumentVersion", "DocumentOperation", "DocumentTag", "Tag", "Template",
     "ServiceDefinition", "ServiceInstance", "ServiceBinding", "ServiceExecution",
     "SubscriptionPlan", "Subscription", "Invoice", "UsageRecord", "PaymentMethod",
     "AuditLog", "ApiCallLog",

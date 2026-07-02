@@ -54,20 +54,24 @@ async def startup() -> None:
         logging.warning("DB connection unavailable on startup: %s", exc)
     
     # Initialize AI drivers from DB config
-    try:
-        from app.ai.router import pool
-        from app.ai import LocalDriver
-        
-        # Register local llama.cpp driver (always available on this host)
-        local_driver = LocalDriver(
-            model_id="qwen3.6-35b-a3b",
-            base_url="http://localhost:8085",
-        )
-        pool.register(local_driver, priority=10, cost_per_1k=0, max_concurrent=5)
-        await local_driver.initialize()
-        logging.info("Local AI driver registered (llama.cpp)")
-    except Exception as exc:
-        logging.warning("Could not register local AI driver: %s", exc)
+    if settings.AI_LOCAL_DRIVER_ENABLED:
+        try:
+            from app.ai.router import pool
+            from app.ai import LocalDriver
+
+            local_driver = LocalDriver(
+                model_id=settings.AI_LOCAL_DRIVER_MODEL_ID,
+                base_url=settings.AI_LOCAL_DRIVER_URL,
+            )
+            pool.register(local_driver, priority=10, cost_per_1k=0, max_concurrent=5)
+            await local_driver.initialize()
+            logging.info(
+                "Local AI driver registered on port %s (model: %s)",
+                settings.AI_LOCAL_DRIVER_URL,
+                settings.AI_LOCAL_DRIVER_MODEL_ID,
+            )
+        except Exception as exc:
+            logging.warning("Could not register local AI driver: %s", exc)
     
     # Start background health checks
     try:

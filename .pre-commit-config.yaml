@@ -1,0 +1,55 @@
+# Aether — pre-commit hooks
+# Install: pip install pre-commit && pre-commit install
+# Run all:  pre-commit run --all-files
+
+repos:
+  # ── Generic file checks ─────────────────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: check-added-large-files
+        args: ["--maxkb=500"]
+      - id: detect-private-key
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+
+  # ── Block commits to main ────────────────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: no-commit-to-branch
+        args: ["--branch=main", "--branch=master"]
+
+  # ── Python: lint + format ────────────────────────────────────
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.0
+    hooks:
+      - id: ruff
+        name: ruff (lint)
+        args: ["--config", "backend/pyproject.toml", "--fix", "--show-fixes"]
+        files: ^backend/
+      - id: ruff-format
+        name: ruff (format)
+        args: ["--config", "backend/pyproject.toml"]
+        files: ^backend/
+
+  # ── Python: type check ───────────────────────────────────────
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.13.0
+    hooks:
+      - id: mypy
+        name: mypy (type check)
+        args: ["--config-file=backend/pyproject.toml"]
+        files: ^backend/app/
+        pass_filenames: true
+        additional_dependencies:
+          - sqlalchemy>=2.0
+          - pydantic>=2.0
+          - pydantic-settings>=2.0

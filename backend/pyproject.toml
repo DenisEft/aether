@@ -34,5 +34,19 @@ line-length = 99
 src = ["app"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B"]
-ignore = ["E501"]
+select = [
+    "E",      # pycodestyle errors
+    "F",      # pyflakes
+    "I",      # isort
+    "UP",     # pyupgrade
+    "B",      # flake8-bugbear
+    "SIM",    # simplify code
+    "C4",     # comprehensions
+    "W",      # pycodestyle warnings
+    "N",      # pep8-naming (future)
+]
+ignore = []
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+force-sort-within-sections = true

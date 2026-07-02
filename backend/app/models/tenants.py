@@ -8,8 +8,12 @@ from datetime import datetime
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from typing import TYPE_CHECKING
 
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKey, utcnow
+
+if TYPE_CHECKING:
+    from app.models.documents import Document
 
 
 class Tenant(Base, UUIDPrimaryKey, TimestampMixin):
@@ -31,6 +35,7 @@ class Tenant(Base, UUIDPrimaryKey, TimestampMixin):
     organisations: Mapped[list["Organisation"]] = relationship(back_populates="tenant")
     channels: Mapped[list["Channel"]] = relationship(back_populates="tenant")
     conversations: Mapped[list["Conversation"]] = relationship(back_populates="tenant")
+    documents: Mapped[list["Document"]] = relationship(back_populates="tenant")
 
 
 class TenantConfig(Base, UUIDPrimaryKey, TimestampMixin):
