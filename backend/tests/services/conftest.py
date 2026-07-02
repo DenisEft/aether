@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.services.document_service import DocumentCreate, DocumentService
 from app.services.template_service import TemplateService, TemplateCreate
 from app.models.documents import Template
+from app.models.ai import Intent
 
 
 @pytest.fixture
@@ -108,3 +109,71 @@ async def system_template(template_service):
         is_system=True,
     )
     return await template_service.create(data)
+
+
+# ── AI Pipeline fixtures ─────────────────────────────────────
+
+
+@pytest.fixture
+def test_intent_order(test_tenant_id):
+    """A test intent for order classification."""
+    return Intent(
+        name="order_new",
+        display_name="Новый заказ",
+        category="order",
+        description="Создание нового заказа",
+        is_builtin=False,
+        plugin_ids=[],
+    )
+
+
+@pytest.fixture
+def test_intent_invoice(test_tenant_id):
+    """A test intent for invoice classification."""
+    return Intent(
+        name="invoice_request",
+        display_name="Счёт на оплату",
+        category="invoice",
+        description="Счёт на оплату",
+        is_builtin=False,
+        plugin_ids=[],
+    )
+
+
+@pytest.fixture
+def test_template_order(test_tenant_id):
+    """A test template for order documents with extraction patterns."""
+    return Template(
+        tenant_id=test_tenant_id,
+        name="Заказ",
+        document_type="order",
+        fields=[
+            {"key": "cargo", "label": "Груз", "type": "text", "required": True},
+            {"key": "weight", "label": "Вес", "type": "text", "pattern": r'(\d+)[\s]*(?:тн|тонн)'},
+            {"key": "amount", "label": "Сумма", "type": "text", "pattern": r'(\d+)[\s]*(?:руб|₽)'},
+        ],
+        statuses=[
+            {"key": "new", "label": "Новый", "color": "#6b7280", "is_initial": True},
+        ],
+        icon="📦",
+        is_system=False,
+    )
+
+
+@pytest.fixture
+def test_template_invoice(test_tenant_id):
+    """A test template for invoice documents."""
+    return Template(
+        tenant_id=test_tenant_id,
+        name="Счёт",
+        document_type="invoice",
+        fields=[
+            {"key": "invoice_number", "label": "Номер счёта", "type": "text", "required": True},
+            {"key": "amount", "label": "Сумма", "type": "text", "pattern": r'(\d+)[\s]*(?:руб|₽)'},
+        ],
+        statuses=[
+            {"key": "draft", "label": "Черновик", "color": "#6b7280", "is_initial": True},
+        ],
+        icon="💰",
+        is_system=False,
+    )

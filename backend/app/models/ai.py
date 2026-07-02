@@ -24,7 +24,7 @@ class Intent(Base, UUIDPrimaryKey):
     description: Mapped[str | None] = mapped_column(Text)
     category: Mapped[str] = mapped_column(String, default="other")
     is_builtin: Mapped[bool] = mapped_column(Boolean, default=False)
-    plugin_ids: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
+    plugin_ids: Mapped[list[str]] = mapped_column(JSONB, default=list)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow
     )

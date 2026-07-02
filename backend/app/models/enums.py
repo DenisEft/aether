@@ -66,3 +66,12 @@ class ExecutionResult(str, enum.Enum):
     success = "success"
     error = "error"
     partial = "partial"
+
+
+class DocumentType(str, enum.Enum):
+    order = "order"
+    invoice = "invoice"
+    etrn = "etrn"
+    waybill = "waybill"
+    contract = "contract"
+    custom = "custom"
