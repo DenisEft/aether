@@ -34,6 +34,7 @@ from app.schemas.billing import (
     UsageRecordResponse,
     UsageSummaryResponse,
 )
+from app.services.billing_service import BillingService
 
 router = APIRouter(tags=["billing"])
 
@@ -178,17 +179,17 @@ async def create_subscription(
     now = datetime.utcnow()
     trial_started = None
     trial_ends = None
-    status = SubscriptionStatus.active
+    status_val = SubscriptionStatus.active
 
     if body.trial_days:
         trial_started = now
         trial_ends = now + timedelta(days=body.trial_days)
-        status = SubscriptionStatus.trial
+        status_val = SubscriptionStatus.trial
 
     sub = Subscription(
         tenant_id=current_user.tenant_id,
         plan_id=body.plan_id,
-        status=status,
+        status=status_val,
         trial_started_at=trial_started,
         trial_ends_at=trial_ends,
         current_period_start=now,
@@ -376,3 +377,50 @@ async def usage_summary(
         count=count or 0,
         recorded_at=latest or datetime.utcnow(),
     )
+
+
+# ─────────────────────────────────────────────────────────────
+# BILLING STATUS (new — full summary + quota check)
+# ─────────────────────────────────────────────────────────────
+
+@router.get("/billing/status")
+async def billing_status(
+    db: DBDep,
+    current_user: CurrentActiveUser,
+) -> dict:
+    """Get full billing status: plan, usage, limits, quotas."""
+    billing = BillingService(db)
+
+    # Get active plan
+    plan = await billing.get_active_plan(current_user.tenant_id)
+
+    # Get usage summary
+    usage = await billing.get_usage_summary(current_user.tenant_id)
+
+    # Get active subscription
+    sub_result = await db.execute(
+        select(Subscription).where(
+            Subscription.tenant_id == current_user.tenant_id,
+            Subscription.status.in_([SubscriptionStatus.active, SubscriptionStatus.trial]),
+        ).limit(1)
+    )
+    subscription = sub_result.scalar_one_or_none()
+
+    return {
+        "tenant_id": str(current_user.tenant_id),
+        "plan": {
+            "id": plan.id if plan else "free",
+            "name": plan.name if plan else "Free",
+            "price_monthly_usd": plan.price_monthly_usd if plan else 0.0,
+        } if plan else {
+            "id": "free",
+            "name": "Free",
+            "price_monthly_usd": 0.0,
+        },
+        "subscription": {
+            "status": subscription.status if subscription else "active",
+            "trial_ends_at": subscription.trial_ends_at.isoformat() if subscription and subscription.trial_ends_at else None,
+            "current_period_end": subscription.current_period_end.isoformat() if subscription else None,
+        } if subscription else None,
+        "usage": usage,
+    }

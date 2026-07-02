@@ -1,5 +1,17 @@
 # Aether LOG
 
+## 2026-07-02 12:29-12:42 — Billing Stage 1
+- ✅ BillingService: token accounting, plan enforcement, usage tracking (247 lines)
+- ✅ BillingAIMiddleware: auto charging tokens for AI requests, HTTP 429 on quota exceeded
+- ✅ Seed plans: Free, Starter, Pro, Enterprise with limits (tokens/conversations/documents)
+- ✅ Billing API: /billing/status (full status), /billing/usage/summary
+- ✅ Fixed ARRAY→JSON in features column (SQLite compatibility)
+- ✅ Fixed AI Pipeline test bug: tenant_id mismatch with fixtures
+- ✅ 103/103 tests green
+- ✅ Audit: removed logistics contamination from enums/models (commit db88fd9)
+
+**Next:** Integrate billing with AI Pipeline (charge tokens on real AI requests)
+
 ## 2026-06-25 04:17 UTC — Stage 0: Analysis Complete
 - Stack chosen: Python 3.12+ FastAPI (8.5/10 score vs Go 6.5, Node 7.5)
 - MVP Channels: Telegram Bot (#1), Web Widget (#2), Email (#3)

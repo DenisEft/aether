@@ -18,7 +18,7 @@ class TestIntentClassificationService:
     """Tests for intent classification."""
 
     async def test_classify_order_intent(
-        self, async_session: AsyncSession, test_intent_order, test_template_order,
+        self, async_session: AsyncSession, test_tenant_id, test_intent_order, test_template_order,
     ):
         """Text 'Новый заказ на перевозку угля' → order_new intent."""
         service = IntentClassificationService(async_session)
@@ -29,7 +29,7 @@ class TestIntentClassificationService:
         await async_session.flush()
 
         intent, template, confidence = await service.classify(
-            "Новый заказ на перевозку угля", uuid4(),
+            "Новый заказ на перевозку угля", test_tenant_id,
         )
 
         assert intent is not None
@@ -38,7 +38,7 @@ class TestIntentClassificationService:
         assert confidence > 0.0
 
     async def test_classify_invoice_intent(
-        self, async_session: AsyncSession, test_intent_invoice, test_template_invoice,
+        self, async_session: AsyncSession, test_tenant_id, test_intent_invoice, test_template_invoice,
     ):
         """Text 'Выставлен счёт на оплату №123' → invoice_request intent."""
         service = IntentClassificationService(async_session)
@@ -48,7 +48,7 @@ class TestIntentClassificationService:
         await async_session.flush()
 
         intent, template, confidence = await service.classify(
-            "Выставлен счёт на оплату №123", uuid4(),
+            "Выставлен счёт на оплату №123", test_tenant_id,
         )
 
         assert intent is not None
@@ -137,7 +137,7 @@ class TestAIDocumentPipeline:
     """End-to-end pipeline tests."""
 
     async def test_pipeline_process_order(
-        self, async_session: AsyncSession, test_intent_order, test_template_order,
+        self, async_session: AsyncSession, test_tenant_id, test_intent_order, test_template_order,
     ):
         """Full pipeline: message → classified → extracted → document."""
         pipeline = AIDocumentPipeline(async_session)
@@ -146,11 +146,9 @@ class TestAIDocumentPipeline:
         async_session.add(test_template_order)
         await async_session.flush()
 
-        tenant_id = uuid4()
-
         result = await pipeline.process_message(
             text="Новый заказ: груз уголь 70 тн, сумма 15000 руб",
-            tenant_id=tenant_id,
+            tenant_id=test_tenant_id,
             source="manual",
         )
 

@@ -5,8 +5,8 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, String, Text
-from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, String, Text, JSON
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKey, utcnow
@@ -21,7 +21,7 @@ class SubscriptionPlan(Base, UUIDPrimaryKey):
     description: Mapped[str | None] = mapped_column(Text)
     price_monthly_usd: Mapped[float] = mapped_column(Float, default=0.0)
     price_yearly_usd: Mapped[float | None] = mapped_column(Float)
-    features: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
+    features: Mapped[list[str]] = mapped_column(JSON, default=list)
     limits: Mapped[dict] = mapped_column(JSONB, default=dict)
     is_public: Mapped[bool] = mapped_column(Boolean, default=True)
     sort_order: Mapped[int] = mapped_column(default=0)
