@@ -101,11 +101,40 @@ def validate_password_strength(password: str) -> bool:
     # Check for minimum 12 characters
     if len(password) < 12:
         return False
-    
+
     # Check for uppercase, lowercase, digit, and special character
     has_upper = any(c.isupper() for c in password)
     has_lower = any(c.islower() for c in password)
     has_digit = any(c.isdigit() for c in password)
     has_special = any(not c.isalnum() for c in password)
-    
+
     return all([has_upper, has_lower, has_digit, has_special])
+
+
+async def check_password_not_pwned(password: str) -> bool:
+    """Check if password appears in HaveIBeenPwned database using k-anonymity.
+
+    Returns True if password is SAFE (not found in breaches).
+    Returns False if password IS pwned (found in breaches).
+    """
+    import hashlib
+    import httpx
+
+    sha1_hash = hashlib.sha1(password.encode()).hexdigest().upper()  # noqa: S324 — intentional for k-anonymity lookup
+    prefix, suffix = sha1_hash[:5], sha1_hash[5:]
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                f"https://api.pwnedpasswords.com/range/{prefix}",
+                headers={"Add-Padding": "true"},
+            )
+            resp.raise_for_status()
+            # Response format: SUFFIX:COUNT per line
+            for line in resp.text.splitlines():
+                if line.startswith(suffix):
+                    return False  # Password found in breaches
+            return True  # Password not found
+    except Exception:
+        # If API is unreachable, allow the password (don't block signup)
+        return True

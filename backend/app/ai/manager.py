@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,6 +15,7 @@ from .context_manager import ContextManager
 from .inference_pool import InferencePool
 from .model_registry import ModelRegistry
 from .smart_router import SmartRouter
+from ..services.billing_middleware import get_billing_service
 
 logger = logging.getLogger("aether.ai.manager")
 
@@ -41,7 +43,7 @@ class AIManager:
     @property
     def inference_pool(self) -> InferencePool:
         return self._pool
-
+    
     @property
     def model_registry(self) -> ModelRegistry:
         return self._registry
@@ -49,6 +51,12 @@ class AIManager:
     @property
     def context_manager(self) -> ContextManager:
         return self._context_manager
+
+    async def _billing_callback(self, tenant_id: UUID, prompt_tokens: int, completion_tokens: int, model: str, driver_type: str) -> None:
+        """Billing callback that gets the billing service from the database session."""
+        # This will be called from SmartRouter with the current session
+        # We can't access the session here directly, but this is a placeholder for when we get it from the calling context
+        pass
 
     # === Intent Management ===
 
@@ -85,6 +93,7 @@ class AIManager:
         strategy: str = "hybrid",
         tenant_id: str | None = None,
         conversation_id: str | None = None,
+        db: AsyncSession | None = None,
     ) -> InferenceResponse:
         """Generate a response using the best available AI driver."""
 
@@ -99,7 +108,22 @@ class AIManager:
 
         # If we have smart router, use it for routing
         if self._smart_router:
-            return await self._smart_router.generate(request, strategy=strategy)
+            # Create billing callback with the database session if provided
+            billing_callback = None
+            if db is not None and tenant_id is not None:
+                async def _billing_callback(tenant_id: UUID, prompt_tokens: int, completion_tokens: int, model: str, driver_type: str):
+                    billing_service = await get_billing_service(db)
+                    await billing_service.record_tokens(
+                        tenant_id=tenant_id,
+                        prompt_tokens=prompt_tokens,
+                        completion_tokens=completion_tokens,
+                        model=model,
+                        driver_type=driver_type,
+                        commit=True
+                    )
+                billing_callback = _billing_callback
+                
+            return await self._smart_router.generate(request, strategy=strategy, billing_callback=billing_callback)
         else:
             # Fallback to legacy pool
             return await self._pool.infer(request, strategy=strategy)
@@ -112,6 +136,7 @@ class AIManager:
         max_tokens: int = 1024,
         strategy: str = "hybrid",
         tenant_id: str | None = None,
+        db: AsyncSession | None = None,
     ):
         """Generate a streaming response."""
         from . import InferenceRequest
@@ -126,7 +151,24 @@ class AIManager:
 
         # Get driver and stream
         if self._smart_router:
-            async for chunk in self._smart_router.generate_stream(request, strategy=strategy):
+            # Create billing callback with the database session if provided
+            billing_callback = None
+            if db is not None and tenant_id is not None:
+                async def _billing_callback(tenant_id: UUID, prompt_tokens: int, completion_tokens: int, model: str, driver_type: str):
+                    billing_service = await get_billing_service(db)
+                    await billing_service.record_tokens(
+                        tenant_id=tenant_id,
+                        prompt_tokens=prompt_tokens,
+                        completion_tokens=completion_tokens,
+                        model=model,
+                        driver_type=driver_type,
+                        commit=True
+                    )
+                billing_callback = _billing_callback
+                
+            # For streaming we need to pass the billing callback
+            # For now, we'll pass it through to the stream method
+            async for chunk in self._smart_router.generate_stream(request, strategy=strategy, billing_callback=billing_callback):
                 yield chunk
         else:
             # Fallback to legacy pool

@@ -173,6 +173,5 @@ class SessionResponse(BaseModel):
     expires_at: datetime = Field(...)
 
 
-class OAuthCallbackRequest(BaseModel):
-    code: str = Field(...)
-    state: str = Field(...)
+class InviteRequest(BaseModel):
+    token: str = Field(...)

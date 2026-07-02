@@ -36,19 +36,23 @@ from app.core.security import (
 )
 from app.models.auth import (
     ApiKey,
+    Invite,
     MagicLink,
     MFAConfig,
+    OAuthState,
     Passkey,
     RefreshToken,
     Session,
 )
 from app.models.tenants import Tenant
 from app.models.users import User
+from app.services.tenant_provisioning import TenantProvisioningService
 from app.schemas.auth import (
     ApiKeyCreateRequest,
     ApiKeyCreateResponse,
     ApiKeyResponse,
     ChangePasswordRequest,
+    InviteRequest,
     LoginRequest,
     MagicLinkRequest,
     MagicLinkVerifyRequest,
@@ -146,6 +150,16 @@ async def signup(request: Request, body: SignupRequest, db: DBDep) -> dict:  # n
     )
     db.add(user)
     await db.flush()
+
+    # Provision the tenant
+    provisioning_service = TenantProvisioningService(db)
+    try:
+        provision_result = await provisioning_service.provision_tenant(tenant.id)
+    except Exception as e:
+        logger.error(f"Failed to provision tenant {tenant.id}: {e}")
+        # We could rollback here if needed, but tenant already exists
+        # For now, we'll proceed with the signup
+        pass
 
     # Token
     token_data = {"sub": str(user.id), "tenant_id": str(tenant.id)}
@@ -740,6 +754,66 @@ async def change_password(
 
     await db.commit()
     return {"message": "Password changed"}
+
+
+# ── POST /auth/invite/accept ────────────────────────────────
+
+
+@router.post("/auth/invite/accept", status_code=200)
+async def accept_invite(
+    body: InviteRequest,
+    db: DBDep,
+) -> dict:
+    """Accept an invitation and create or link user account."""
+    token_hash = _hash_token(body.token)
+
+    # Find valid invite
+    result = await db.execute(
+        select(Invite).where(
+            Invite.token_hash == token_hash,
+            Invite.is_used == False,  # noqa: E712
+            Invite.expires_at > datetime.now(timezone.utc),
+        )
+    )
+    invite = result.scalar_one_or_none()
+    if invite is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired invitation",
+        )
+
+    # Find or create user by email
+    result = await db.execute(select(User).where(User.email == invite.email))
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        # Create user without password (they'll set it later or use magic link)
+        import uuid as _uuid
+        user = User(
+            id=_uuid.uuid4(),
+            tenant_id=invite.tenant_id,
+            email=invite.email,
+            display_name=invite.email.split("@")[0],
+            hashed_password="",
+            is_active=True,
+        )
+        db.add(user)
+        logger.info(f"Created user from invite: {invite.email}")
+
+    # Mark invite as used
+    invite.is_used = True
+
+    # Generate tokens
+    tr = _make_token_response(user)
+    await _store_refresh_token(db, user, tr)
+    await db.commit()
+
+    return {
+        "access_token": tr.access_token,
+        "refresh_token": tr.refresh_token,
+        "token_type": tr.token_type,
+        "message": "Invitation accepted",
+    }
 
 
 # ── GET /users/me ─────────────────────────────────────────────

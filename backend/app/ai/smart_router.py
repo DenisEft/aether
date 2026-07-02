@@ -8,7 +8,8 @@ import random
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Callable, Awaitable
+from uuid import UUID
 
 from .drivers.base import BaseDriver, DriverHealth, DriverMetrics, InferenceRequest, InferenceResponse, EmbeddingRequest, EmbeddingResponse
 from .inference_pool import InferencePool
@@ -39,10 +40,12 @@ class SmartRouter:
     """Intelligent AI router with multiple routing strategies, fallback chains, and circuit breakers."""
 
     def __init__(self, pool: InferencePool, registry: ModelRegistry, 
-                 default_strategy: RoutingStrategy = RoutingStrategy.HYBRID):
+                 default_strategy: RoutingStrategy = RoutingStrategy.HYBRID,
+                 billing_callback: Callable[[UUID, int, int, str, str], Awaitable[None]] | None = None):
         self.pool = pool
         self.registry = registry
         self.default_strategy = default_strategy
+        self.billing_callback = billing_callback
         self._lock = asyncio.Lock()
         
         # Weighted scoring configuration per strategy
@@ -104,6 +107,9 @@ class SmartRouter:
                                     best_driver = driver
                                     best_score = score
                                     break
+                        # If we found a working fallback driver, exit the loop
+                        if best_driver != scored_drivers[0][0]:
+                            break
 
         return RoutingResult(
             driver=best_driver,
@@ -228,19 +234,76 @@ class SmartRouter:
         return fallback_chain
 
     async def generate(self, request: InferenceRequest, 
-                       strategy: RoutingStrategy | None = None) -> InferenceResponse:
+                       strategy: RoutingStrategy | None = None, 
+                       billing_callback: Callable[[UUID, int, int, str, str], Awaitable[None]] | None = None) -> InferenceResponse:
         """Generate response using routing strategy."""
         routing_result = await self.route(request, strategy)
-        return await routing_result.driver.generate(request)
+        response = await routing_result.driver.generate(request)
+        
+        # Handle billing if tenant_id is provided
+        if request.tenant_id is not None:
+            try:
+                # Extract usage from response
+                prompt_tokens = response.usage.get('prompt_tokens', 0)
+                completion_tokens = response.usage.get('completion_tokens', 0)
+                
+                # Call billing callback if provided (prefer passed callback over instance callback)
+                callback = billing_callback or self.billing_callback
+                if callback:
+                    await callback(
+                        UUID(request.tenant_id),
+                        prompt_tokens,
+                        completion_tokens,
+                        response.model,
+                        response.driver_type
+                    )
+            except Exception as e:
+                logger.warning(f"Billing callback failed for tenant {request.tenant_id}: {e}")
+        
+        return response
 
     async def generate_stream(self, request: InferenceRequest, 
-                               strategy: RoutingStrategy | None = None):
+                               strategy: RoutingStrategy | None = None, 
+                               billing_callback: Callable[[UUID, int, int, str, str], Awaitable[None]] | None = None):
         """Stream response using routing strategy."""
         routing_result = await self.route(request, strategy)
+        
+        # For streaming, we need to accumulate token counts
+        total_prompt_tokens = 0
+        total_completion_tokens = 0
+        
+        # Collect all chunks to calculate total tokens
+        chunks = []
         async for chunk in routing_result.driver.generate_stream(request):
+            chunks.append(chunk)
             yield chunk
+            
+        # If we have tenant_id and billing callback, record usage
+        if request.tenant_id is not None:
+            callback = billing_callback or self.billing_callback
+            if callback:
+                try:
+                    # If we can't get precise token counts from streaming, make an estimate
+                    # In a real implementation, the driver should provide proper token accounting
+                    if chunks:
+                        # Estimate based on content length
+                        for chunk in chunks:
+                            if hasattr(chunk, 'usage') and chunk.usage:
+                                total_prompt_tokens += chunk.usage.get('prompt_tokens', 0)
+                                total_completion_tokens += chunk.usage.get('completion_tokens', 0)
+                        
+                    await callback(
+                        UUID(request.tenant_id),
+                        total_prompt_tokens,
+                        total_completion_tokens,
+                        request.model or "unknown",
+                        routing_result.driver.driver_type
+                    )
+                except Exception as e:
+                    logger.warning(f"Billing callback failed for streaming tenant {request.tenant_id}: {e}")
 
-    async def embed(self, request: EmbeddingRequest, strategy: RoutingStrategy | None = None) -> EmbeddingResponse:
+    async def embed(self, request: EmbeddingRequest, strategy: RoutingStrategy | None = None, 
+                 billing_callback: Callable[[UUID, int, int, str, str], Awaitable[None]] | None = None) -> EmbeddingResponse:
         """Generate embeddings using routing strategy."""
         # For embedding, we might want to use a specific driver or fallback strategy
         # This is simplified - in practice, embeddings could be routed similarly to generation
@@ -256,8 +319,33 @@ class SmartRouter:
                 available_drivers = self.pool.get_all_drivers()
                 
             if available_drivers:
+                
+                # Route to first available driver
                 driver = available_drivers[0]  # Simple round-robin for now
-                return await driver.embed(request)
+                response = await driver.embed(request)
+                
+                # Handle billing if tenant_id is provided
+                if request.tenant_id is not None:
+                    try:
+                        # Extract usage from response
+                        prompt_tokens = response.usage.get('prompt_tokens', 0)
+                        total_tokens = response.usage.get('total_tokens', 0)
+                        completion_tokens = total_tokens - prompt_tokens
+                        
+                        # Call billing callback if provided (prefer passed callback over instance callback)
+                        callback = billing_callback or self.billing_callback
+                        if callback:
+                            await callback(
+                                UUID(request.tenant_id),
+                                prompt_tokens,
+                                completion_tokens,
+                                response.model,
+                                driver.driver_type
+                            )
+                    except Exception as e:
+                        logger.warning(f"Billing callback failed for embedding tenant {request.tenant_id}: {e}")
+                
+                return response
             else:
                 raise RuntimeError("No drivers available for embedding")
                 
