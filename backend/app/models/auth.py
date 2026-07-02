@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-import uuid
 from datetime import datetime
+import uuid
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func
-from sqlalchemy.dialects.postgresql import UUID, BYTEA, ARRAY
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy.dialects.postgresql import ARRAY, BYTEA, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, TimestampMixin, UUIDPrimaryKey, utcnow
+from app.models.base import Base, UUIDPrimaryKey, utcnow
 
 
 class Session(Base, UUIDPrimaryKey):
@@ -25,11 +25,9 @@ class Session(Base, UUIDPrimaryKey):
     ip_address: Mapped[str | None] = mapped_column(String)
     user_agent: Mapped[str | None] = mapped_column(String)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
-    user: Mapped["User"] = relationship(back_populates="sessions")
+    user: Mapped[User] = relationship(back_populates="sessions")
 
 
 class RefreshToken(Base, UUIDPrimaryKey):
@@ -49,9 +47,7 @@ class RefreshToken(Base, UUIDPrimaryKey):
     is_revoked: Mapped[bool] = mapped_column(Boolean, default=False)
     revoked_reason: Mapped[str | None] = mapped_column(String)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class MagicLink(Base, UUIDPrimaryKey):
@@ -64,9 +60,7 @@ class MagicLink(Base, UUIDPrimaryKey):
     token_hash: Mapped[str] = mapped_column(Text, nullable=False)
     is_used: Mapped[bool] = mapped_column(Boolean, default=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class ApiKey(Base, UUIDPrimaryKey):
@@ -85,11 +79,9 @@ class ApiKey(Base, UUIDPrimaryKey):
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     is_revoked: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
-    user: Mapped["User"] = relationship(back_populates="api_keys")
+    user: Mapped[User] = relationship(back_populates="api_keys")
 
 
 class Passkey(Base, UUIDPrimaryKey):
@@ -106,9 +98,7 @@ class Passkey(Base, UUIDPrimaryKey):
     sign_count: Mapped[int] = mapped_column(Integer, default=0)
     name: Mapped[str | None] = mapped_column(String)
     device_type: Mapped[str | None] = mapped_column(String)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class MFAConfig(Base, UUIDPrimaryKey):
@@ -123,9 +113,22 @@ class MFAConfig(Base, UUIDPrimaryKey):
     secret_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     backup_codes: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class SSOConfig(Base, UUIDPrimaryKey):
+    __tablename__ = "sso_configs"
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
     )
+    provider: Mapped[str] = mapped_column(String, nullable=False)
+    domain: Mapped[str | None] = mapped_column(String)
+    metadata_url: Mapped[str | None] = mapped_column(String)
+    client_id: Mapped[str] = mapped_column(String, nullable=False)
+    client_secret: Mapped[str] = mapped_column(Text, nullable=False)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class OAuthState(Base, UUIDPrimaryKey):
@@ -140,6 +143,4 @@ class OAuthState(Base, UUIDPrimaryKey):
     state: Mapped[str] = mapped_column(Text, nullable=False)
     provider: Mapped[str] = mapped_column(String, nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

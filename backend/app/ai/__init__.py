@@ -2,14 +2,24 @@
 
 from __future__ import annotations
 
-import asyncio
-import logging
 from abc import ABC, abstractmethod
+import asyncio
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import AsyncGenerator, Optional
+import logging
+from typing import Optional
 
-__all__ = ["BaseDriver", "DriverCapability", "DriverHealth", "DriverMetrics", "InferenceRequest", "InferenceResponse"]
+__all__ = [
+    "BaseDriver",
+    "DriverCapability",
+    "DriverHealth",
+    "DriverMetrics",
+    "InferenceRequest",
+    "InferenceResponse",
+    "EmbeddingRequest",
+    "EmbeddingResponse",
+]
 
 logger = logging.getLogger("aether.ai.drivers")
 
@@ -27,15 +37,20 @@ class DriverHealth:
     status: str  # "healthy", "degraded", "error", "unknown"
     message: str = ""
     latency_ms: float = 0.0
+    error_count: int = 0
 
 
 @dataclass
 class InferenceRequest:
     messages: list[dict]  # [{"role": "user"/"assistant"/"system", "content": "..."}]
-    system_prompt: str | None = None
+    tenant_id: str | None = None
+    model: str | None = None
     temperature: float | None = None
     max_tokens: int | None = None
     stop_sequences: list[str] | None = None
+    stream: bool = False
+    timeout_seconds: int = 120
+    priority: int = 0
     metadata: dict = field(default_factory=dict)
 
 
@@ -45,8 +60,30 @@ class InferenceResponse:
     driver_type: str
     content: str
     finish_reason: str = "stop"
-    usage: dict = field(default_factory=dict)  # {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+    usage: dict = field(
+        default_factory=dict
+    )  # {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
     latency_ms: float = 0.0
+    metadata: dict = field(default_factory=dict)
+    cost_estimate_usd: float = 0.0
+
+
+@dataclass
+class EmbeddingRequest:
+    texts: list[str]
+    tenant_id: str | None = None
+    model: str | None = None
+    encoding_format: str = "float"
+    dimensions: int | None = None
+    metadata: dict = field(default_factory=dict)
+
+
+@dataclass
+class EmbeddingResponse:
+    embeddings: list[list[float]]
+    model: str
+    driver_type: str
+    usage: dict = field(default_factory=dict)  # {"prompt_tokens": 0, "total_tokens": 0}
     metadata: dict = field(default_factory=dict)
 
 
@@ -59,7 +96,8 @@ class DriverMetrics:
     avg_latency_ms: float = 0.0
     cost_usd: float = 0.0
     last_used_at: float | None = None
-    
+    success_rate: float = 1.0
+
     @property
     def success_rate(self) -> float:
         if self.total_requests == 0:
@@ -98,14 +136,24 @@ class BaseDriver(ABC):
         ...
 
     @abstractmethod
-    async def infer(self, request: InferenceRequest) -> InferenceResponse:
+    async def generate(self, request: InferenceRequest) -> InferenceResponse:
         """Run a single inference request. Non-streaming."""
         ...
 
-    async def infer_stream(self, request: InferenceRequest) -> AsyncGenerator[str, None]:
-        """Run a streaming inference request. Default: calls infer() and yields once."""
-        response = await self.infer(request)
-        yield response.content
+    @abstractmethod
+    async def generate_stream(self, request: InferenceRequest):
+        """Run a streaming inference request."""
+        ...
+
+    @abstractmethod
+    async def embed(self, request: EmbeddingRequest) -> EmbeddingResponse:
+        """Generate embeddings for texts."""
+        ...
+
+    @abstractmethod
+    async def get_available_models(self) -> list[str]:
+        """Get list of available models for this driver."""
+        ...
 
     @abstractmethod
     async def shutdown(self) -> None:
@@ -122,21 +170,23 @@ class BaseDriver(ABC):
         self._metrics.total_failed += 1
         logger.warning(f"Driver {self.driver_type}/{self.model_id} failed: {error}")
 
-    def record_success(self, latency_ms: float, tokens: int = 0):
+    def record_success(self, latency_ms: float, tokens: int = 0, cost_usd: float = 0.0):
         """Record a successful request."""
         n = self._metrics.total_requests
         self._metrics.total_requests = n + 1
         self._metrics.total_tokens += tokens
+        self._metrics.cost_usd += cost_usd
         # Rolling average
-        self._metrics.avg_latency_ms = (
-            (self._metrics.avg_latency_ms * n + latency_ms) / (n + 1)
-        )
+        self._metrics.avg_latency_ms = (self._metrics.avg_latency_ms * n + latency_ms) / (n + 1)
         from time import time
+
         self._metrics.last_used_at = time()
+
 
 # Export router types when available
 try:
-    from .router import pool, InferencePool, RoutingStrategy
+    from .router import InferencePool, RoutingStrategy, pool
+
     __all__.extend(["pool", "InferencePool", "RoutingStrategy"])
 except ImportError:
     pass
@@ -144,13 +194,17 @@ except ImportError:
 # Export manager
 try:
     from .manager import AIManager, ai_manager
+
     __all__.extend(["AIManager", "ai_manager"])
 except ImportError:
     pass
 
 # Export drivers
 try:
-    from .drivers import DRIVER_REGISTRY, get_driver, OpenAIDriver, AnthropicDriver, LocalDriver
-    __all__.extend(["DRIVER_REGISTRY", "get_driver", "OpenAIDriver", "AnthropicDriver", "LocalDriver"])
+    from .drivers import DRIVER_REGISTRY, AnthropicDriver, LocalDriver, OpenAIDriver, get_driver
+
+    __all__.extend(
+        ["DRIVER_REGISTRY", "get_driver", "OpenAIDriver", "AnthropicDriver", "LocalDriver"]
+    )
 except ImportError:
     pass

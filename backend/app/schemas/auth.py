@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import uuid
 from datetime import datetime
-from typing import List, Optional
+import uuid
 
 from pydantic import BaseModel, Field
-
 
 # ── Request schemas ───────────────────────────────────────────
 
@@ -22,8 +20,8 @@ class SignupRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: str = Field(..., examples=["user@example.com"])
     password: str = Field(...)
-    mfa_code: Optional[str] = Field(None)
-    remember_me: Optional[bool] = Field(False)
+    mfa_code: str | None = Field(None)
+    remember_me: bool | None = Field(False)
 
 
 class MagicLinkRequest(BaseModel):
@@ -40,7 +38,7 @@ class RefreshRequest(BaseModel):
 
 class ApiKeyCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=128, examples=["CI/CD pipeline"])
-    expires_at: Optional[datetime] = Field(None, description="Optional expiry (ISO-8601)")
+    expires_at: datetime | None = Field(None, description="Optional expiry (ISO-8601)")
 
 
 class PasskeyRegistrationBeginRequest(BaseModel):
@@ -85,12 +83,12 @@ class UserResponse(BaseModel):
     id: uuid.UUID = Field(...)
     email: str = Field(...)
     display_name: str = Field(default="")
-    avatar_url: Optional[str] = Field(default=None)
+    avatar_url: str | None = Field(default=None)
     is_verified: bool = Field(default=False)
     created_at: datetime = Field(...)
 
     @classmethod
-    def from_orm_model(cls, user: "User") -> "UserResponse":  # noqa: F821
+    def from_orm_model(cls, user: User) -> UserResponse:  # noqa: F821
         return cls(
             id=user.id,
             email=user.email,
@@ -108,11 +106,11 @@ class ApiKeyResponse(BaseModel):
     name: str = Field(...)
     prefix: str = Field(..., description="Display-safe prefix (e.g. 'aeth••••••abcd')")
     created_at: datetime = Field(...)
-    last_used_at: Optional[datetime] = Field(default=None)
-    expires_at: Optional[datetime] = Field(default=None)
+    last_used_at: datetime | None = Field(default=None)
+    expires_at: datetime | None = Field(default=None)
 
     @classmethod
-    def from_orm_model(cls, key: "ApiKey", full_key: str | None = None) -> "ApiKeyResponse":  # noqa: F821
+    def from_orm_model(cls, key: ApiKey, full_key: str | None = None) -> ApiKeyResponse:  # noqa: F821
         return cls(
             id=key.id,
             name=key.name,
@@ -158,3 +156,23 @@ class MFATokenResponse(BaseModel):
     access_token: str = Field(...)
     refresh_token: str = Field(...)
     token_type: str = Field(default="bearer")
+
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str = Field(...)
+    new_password: str = Field(..., min_length=12)
+
+
+class SessionResponse(BaseModel):
+    model_config = {"from_attributes": True}
+
+    id: uuid.UUID = Field(...)
+    ip_address: str | None = Field(None)
+    user_agent: str | None = Field(None)
+    created_at: datetime = Field(...)
+    expires_at: datetime = Field(...)
+
+
+class OAuthCallbackRequest(BaseModel):
+    code: str = Field(...)
+    state: str = Field(...)

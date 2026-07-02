@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass
 import logging
 import random
 import time
-from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Any
 
-from .drivers.base import BaseDriver, DriverHealth, DriverMetrics, InferenceRequest, InferenceResponse, EmbeddingRequest, EmbeddingResponse
-from .drivers import DRIVER_REGISTRY
+from .drivers.base import (
+    BaseDriver,
+    DriverHealth,
+    InferenceRequest,
+    InferenceResponse,
+)
 
 logger = logging.getLogger("aether.ai.inference_pool")
 
@@ -18,13 +21,14 @@ logger = logging.getLogger("aether.ai.inference_pool")
 @dataclass
 class DriverEntry:
     """Wrapper around a driver with routing metadata."""
+
     driver: BaseDriver
     priority: int = 0
     cost_per_1k_tokens: float = 0.0
     max_concurrent: int = 10
     _current_requests: int = 0
     _consecutive_failures: int = 0
-    _last_health: Optional[DriverHealth] = None
+    _last_health: DriverHealth | None = None
     _last_health_at: float = 0.0
 
     @property
@@ -56,7 +60,7 @@ class InferencePool:
     def __init__(self, health_check_interval: float = 30.0):
         self._drivers: dict[str, DriverEntry] = {}
         self._health_check_interval = health_check_interval
-        self._health_task: Optional[asyncio.Task] = None
+        self._health_task: asyncio.Task | None = None
         self._round_robin_idx = 0
         self._lock = asyncio.Lock()
 
@@ -82,7 +86,7 @@ class InferencePool:
         key = f"{driver_type}:{model_id}"
         self._drivers.pop(key, None)
 
-    def get_driver(self, driver_type: str, model_id: str) -> Optional[BaseDriver]:
+    def get_driver(self, driver_type: str, model_id: str) -> BaseDriver | None:
         """Get a specific driver by type and model."""
         key = f"{driver_type}:{model_id}"
         entry = self._drivers.get(key)
@@ -94,7 +98,7 @@ class InferencePool:
         for key, entry in self._drivers.items():
             tasks.append(self._init_one(key, entry))
         results = await asyncio.gather(*tasks, return_exceptions=True)
-        for key, result in zip(self._drivers.keys(), results):
+        for key, result in zip(self._drivers.keys(), results, strict=False):
             if isinstance(result, Exception):
                 logger.error(f"Failed to init {key}: {result}")
 
@@ -137,11 +141,11 @@ class InferencePool:
             entry._consecutive_failures += 1
             logger.error(f"Health check failed for {key}: {e}")
 
-    def get_all_drivers(self) -> List[BaseDriver]:
+    def get_all_drivers(self) -> list[BaseDriver]:
         """Get list of all registered drivers."""
         return [entry.driver for entry in self._drivers.values()]
 
-    def get_driver_for_model(self, model_id: str) -> Optional[BaseDriver]:
+    def get_driver_for_model(self, model_id: str) -> BaseDriver | None:
         """Get the first driver that supports the given model."""
         for key, entry in self._drivers.items():
             try:
@@ -166,7 +170,7 @@ class InferencePool:
         driver = self.get_driver_for_model(request.model)
         if driver:
             return await self._infer_with_driver(driver, request, timeout, retries)
-        
+
         # If no driver found, use fallback to select based on strategy
         selected = self._select_driver(strategy)
         if not selected:
@@ -176,12 +180,10 @@ class InferencePool:
         entry.mark_request_start()
 
         try:
-            response = await asyncio.wait_for(
-                entry.driver.generate(request), timeout=timeout
-            )
+            response = await asyncio.wait_for(entry.driver.generate(request), timeout=timeout)
             entry.mark_request_done(success=True)
             return response
-        except asyncio.TimeoutError:
+        except TimeoutError:
             entry.mark_request_done(success=False)
             last_error = f"Timeout after {timeout}s"
             logger.warning(f"Driver {key} timed out")
@@ -195,19 +197,17 @@ class InferencePool:
 
         raise RuntimeError(f"All inference attempts failed: {last_error}")
 
-    async def _infer_with_driver(self, driver: BaseDriver, 
-                                     request: InferenceRequest, 
-                                     timeout: float, retries: int) -> InferenceResponse:
+    async def _infer_with_driver(
+        self, driver: BaseDriver, request: InferenceRequest, timeout: float, retries: int
+    ) -> InferenceResponse:
         """Run inference with a specific driver."""
         last_error = None
-        
+
         for attempt in range(retries + 1):
             try:
-                response = await asyncio.wait_for(
-                    driver.generate(request), timeout=timeout
-                )
+                response = await asyncio.wait_for(driver.generate(request), timeout=timeout)
                 return response
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 last_error = f"Timeout after {timeout}s"
                 logger.warning(f"Driver {driver.driver_type} timed out")
             except Exception as e:
@@ -221,18 +221,16 @@ class InferencePool:
     def _select_driver(
         self,
         strategy: str = "least_latency",
-        capability: Optional[str] = None,
+        capability: str | None = None,
         exclude_unhealthy: bool = True,
-    ) -> Optional[tuple[str, DriverEntry]]:
+    ) -> tuple[str, DriverEntry] | None:
         """Select the best driver based on strategy."""
 
         candidates = []
         for key, entry in self._drivers.items():
             if exclude_unhealthy and not entry.is_healthy:
                 continue
-            if capability and capability not in [
-                c.value for c in entry.driver.capabilities()
-            ]:
+            if capability and capability not in [c.value for c in entry.driver.capabilities()]:
                 continue
             if entry.current_load >= 1.0:
                 continue  # At capacity
@@ -249,10 +247,12 @@ class InferencePool:
             return candidates[0]
 
         if strategy == "round_robin":
+
             async def _rr():
                 async with self._lock:
                     self._round_robin_idx = (self._round_robin_idx + 1) % len(candidates)
                     return candidates[self._round_robin_idx]
+
             # Simple non-async-safe version for now
             self._round_robin_idx = (self._round_robin_idx + 1) % len(candidates)
             return candidates[self._round_robin_idx]
@@ -267,11 +267,7 @@ class InferencePool:
 
         if strategy == "least_latency":
             candidates.sort(
-                key=lambda x: (
-                    x[1]._last_health.latency_ms
-                    if x[1]._last_health
-                    else 999999
-                )
+                key=lambda x: (x[1]._last_health.latency_ms if x[1]._last_health else 999999)
             )
             return candidates[0]
 
@@ -312,3 +308,15 @@ class InferencePool:
                 "success_rate": f"{entry.driver.get_metrics().success_rate:.1%}",
             }
         return summary
+
+
+# Global pool instance — created lazily
+pool: InferencePool | None = None
+
+
+def get_pool() -> InferencePool:
+    """Get or create the global inference pool."""
+    global pool
+    if pool is None:
+        pool = InferencePool()
+    return pool

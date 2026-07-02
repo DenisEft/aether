@@ -2,12 +2,8 @@
 
 from __future__ import annotations
 
-import asyncio
-import logging
 from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Any
-
-from .drivers.base import BaseDriver
+import logging
 
 logger = logging.getLogger("aether.ai.model_registry")
 
@@ -15,6 +11,7 @@ logger = logging.getLogger("aether.ai.model_registry")
 @dataclass
 class ModelInfo:
     """Information about an AI model."""
+
     model_id: str
     driver_type: str
     display_name: str
@@ -34,9 +31,9 @@ class ModelRegistry:
     """Registry for AI models with their configurations."""
 
     def __init__(self):
-        self._models: Dict[str, ModelInfo] = {}
-        self._driver_models: Dict[str, List[str]] = {}  # driver_type -> [model_id]
-        self._tenant_overrides: Dict[str, Dict[str, str]] = {}  # tenant_id -> {task: model_id}
+        self._models: dict[str, ModelInfo] = {}
+        self._driver_models: dict[str, list[str]] = {}  # driver_type -> [model_id]
+        self._tenant_overrides: dict[str, dict[str, str]] = {}  # tenant_id -> {task: model_id}
 
     def register_model(self, model_info: ModelInfo):
         """Register a new AI model."""
@@ -46,25 +43,25 @@ class ModelRegistry:
         self._driver_models[model_info.driver_type].append(model_info.model_id)
         logger.info(f"Registered model: {model_info.model_id} for driver {model_info.driver_type}")
 
-    def get_model(self, model_id: str) -> Optional[ModelInfo]:
+    def get_model(self, model_id: str) -> ModelInfo | None:
         """Get model information by ID."""
         return self._models.get(model_id)
 
-    def get_available_models(self, driver_type: Optional[str] = None) -> List[ModelInfo]:
+    def get_available_models(self, driver_type: str | None = None) -> list[ModelInfo]:
         """Get all available models, optionally filtered by driver type."""
         if driver_type:
             model_ids = self._driver_models.get(driver_type, [])
             return [self._models[mid] for mid in model_ids if mid in self._models]
         return list(self._models.values())
 
-    def get_model_for_task(self, task_type: str, tenant_id: Optional[str] = None) -> Optional[str]:
+    def get_model_for_task(self, task_type: str, tenant_id: str | None = None) -> str | None:
         """Get preferred model for a specific task type."""
         # First check tenant overrides
         if tenant_id and tenant_id in self._tenant_overrides:
             override = self._tenant_overrides[tenant_id]
             if task_type in override:
                 return override[task_type]
-        
+
         # Return default model for task type
         # This would be more sophisticated in a real system
         return None
@@ -76,6 +73,10 @@ class ModelRegistry:
         self._tenant_overrides[tenant_id][task_type] = model_id
         logger.info(f"Set tenant override: {tenant_id} -> {task_type} = {model_id}")
 
-    def get_tenant_overrides(self, tenant_id: str) -> Dict[str, str]:
+    def get_tenant_overrides(self, tenant_id: str) -> dict[str, str]:
         """Get all tenant overrides."""
         return self._tenant_overrides.get(tenant_id, {})
+
+
+# Global registry instance
+registry = ModelRegistry()
