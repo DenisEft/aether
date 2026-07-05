@@ -192,6 +192,7 @@ async def _heartbeat_loop(websocket: WebSocket, conn_id: str):
             await websocket.send_text(json.dumps(ping_msg))
         except Exception:
             # Connection probably closed
+            logger.debug("Heartbeat ping failed — connection likely closed")
             break
 
 
