@@ -18,6 +18,7 @@ class M2MTokenRequest(BaseModel):
     """Request model for M2M token generation."""
     secret: str
     scopes: List[str]
+    tenant_id: str | None = None
 
 
 class M2MTokenResponse(BaseModel):
@@ -44,6 +45,8 @@ async def generate_m2m_token(request: M2MTokenRequest):
         "scopes": request.scopes,
         "type": "m2m",
     }
+    if request.tenant_id:
+        token_data["tenant_id"] = request.tenant_id
 
     # Set expiration time
     expire_minutes = settings.AETHER_M2M_TOKEN_EXPIRE_MINUTES

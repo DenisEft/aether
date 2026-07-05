@@ -22,17 +22,18 @@ from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select, desc
 
-from app.core.deps import DBDep, CurrentActiveUser
+from app.core.deps import DBDep, CurrentActiveUser, CurrentService
 from app.models.process_runtime import ProcessInstance, ProcessTransition
 from app.models.services import ServiceInstance
 from app.services.ws_manager import ws_manager
 
-router = APIRouter(prefix="/api/v1/processes", tags=["process-runtime"])
+router = APIRouter(prefix="/processes", tags=["process-runtime"])
 
 
 # ── Schemas ──────────────────────────────────────────────────────────
 
 class StartProcessRequest(BaseModel):
+    tenant_id: uuid.UUID | None = None  # for M2M auth (Vela)
     service_instance_id: uuid.UUID | None = None
     process_definition: dict = Field(..., description="Full process JSON from Vela")
     started_by: str | None = None
@@ -80,6 +81,26 @@ class ProcessInstanceResponse(BaseModel):
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
+
+def _resolve_user(current_user: any, service: dict | None) -> any:
+    """Resolve auth context from either user token or M2M service token."""
+    from types import SimpleNamespace
+
+    if current_user is not None:
+        return current_user
+
+    if service is not None:
+        tid = service.get("tenant_id")
+        if isinstance(tid, str):
+            tid = uuid.UUID(tid)
+        return SimpleNamespace(
+            email=service.get("service", "system"),
+            tenant_id=tid,
+            id=service.get("service", "system"),
+        )
+
+    raise HTTPException(status_code=401, detail="Authentication required")
+
 
 async def _emit_process_event(instance: ProcessInstance, event_type: str, extra: dict | None = None):
     """Emit a process event to the tenant's WebSocket channel."""
@@ -163,14 +184,14 @@ def _instance_to_response(instance: ProcessInstance, include_full: bool = False)
 async def start_process(
     body: StartProcessRequest,
     db: DBDep,
-    current_user: CurrentActiveUser,
+    current_user: CurrentActiveUser = None,
+    service: CurrentService = None,
 ) -> ProcessInstanceResponse:
-    """Start a new process instance for the current tenant.
-
-    Takes a full process_definition JSON from Vela and creates a ProcessInstance.
-    Optionally accepts initial_field_values and context (purchase_id, source, etc.).
-    """
-    tenant_id = current_user.tenant_id
+    """Start a new process instance."""
+    auth = _resolve_user(current_user, service)
+    tenant_id = auth.tenant_id
+    if not tenant_id:
+        raise HTTPException(status_code=400, detail="tenant_id required in request body for M2M")
 
     # Validate definition has blocks
     blocks = body.process_definition.get("blocks", [])
@@ -197,7 +218,7 @@ async def start_process(
         process_definition=body.process_definition,
         current_block_key=start_block["key"],
         state="active",
-        started_by=body.started_by or current_user.email,
+        started_by=body.started_by or auth.email,
         field_values=field_values,
         context=ctx,
         source_system="vela",
@@ -205,7 +226,7 @@ async def start_process(
             "block_key": start_block["key"],
             "action": "enter",
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "user": body.started_by or current_user.email,
+            "user": body.started_by or auth.email,
         }],
     )
     db.add(instance)
@@ -223,11 +244,13 @@ async def transition_process(
     instance_id: uuid.UUID,
     body: TransitionRequest,
     db: DBDep,
-    current_user: CurrentActiveUser,
+    current_user: CurrentActiveUser = None,
+    service: CurrentService = None,
 ) -> ProcessInstanceResponse:
     """Move the process to the next block with optional field values and comment."""
+    auth = _resolve_user(current_user, service)
     instance = await db.get(ProcessInstance, instance_id)
-    if not instance or instance.tenant_id != current_user.tenant_id:
+    if not instance or instance.tenant_id != auth.tenant_id:
         raise HTTPException(status_code=404, detail="Process instance not found")
     if instance.state != "active":
         raise HTTPException(status_code=409, detail=f"Process is {instance.state}")
@@ -308,11 +331,13 @@ async def set_process_fields(
     instance_id: uuid.UUID,
     body: SetFieldsRequest,
     db: DBDep,
-    current_user: CurrentActiveUser,
+    current_user: CurrentActiveUser = None,
+    service: CurrentService = None,
 ) -> ProcessInstanceResponse:
     """Set field values for a block (batch update)."""
+    auth = _resolve_user(current_user, service)
     instance = await db.get(ProcessInstance, instance_id)
-    if not instance or instance.tenant_id != current_user.tenant_id:
+    if not instance or instance.tenant_id != auth.tenant_id:
         raise HTTPException(status_code=404, detail="Process instance not found")
     if instance.state != "active":
         raise HTTPException(status_code=409, detail=f"Process is {instance.state}")
@@ -339,7 +364,7 @@ async def set_process_fields(
             "value": fv,
             "previous": deltas[fk]["old"],
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "user": current_user.email,
+            "user": auth.email,
         }
         instance.execution_log = (instance.execution_log or []) + [log_entry]
 
@@ -359,12 +384,14 @@ async def set_process_fields(
 async def get_process_instance(
     instance_id: uuid.UUID,
     db: DBDep,
-    current_user: CurrentActiveUser,
+    current_user: CurrentActiveUser = None,
+    service: CurrentService = None,
     include_definition: bool = Query(False),
 ) -> ProcessInstanceResponse:
     """Get current state of a process instance, including available transitions."""
+    auth = _resolve_user(current_user, service)
     instance = await db.get(ProcessInstance, instance_id)
-    if not instance or instance.tenant_id != current_user.tenant_id:
+    if not instance or instance.tenant_id != auth.tenant_id:
         raise HTTPException(status_code=404, detail="Process instance not found")
 
     return _instance_to_response(instance, include_full=include_definition)
@@ -373,15 +400,17 @@ async def get_process_instance(
 @router.get("/", response_model=list[ProcessInstanceResponse])
 async def list_process_instances(
     db: DBDep,
-    current_user: CurrentActiveUser,
+    current_user: CurrentActiveUser = None,
+    service: CurrentService = None,
     state_filter: str | None = Query(None, alias="state"),
     service_instance_id: uuid.UUID | None = Query(None),
     limit: int = Query(20, le=100),
     offset: int = Query(0, ge=0),
 ) -> list[ProcessInstanceResponse]:
     """List process instances for current tenant."""
+    auth = _resolve_user(current_user, service)
     stmt = select(ProcessInstance).where(
-        ProcessInstance.tenant_id == current_user.tenant_id
+        ProcessInstance.tenant_id == auth.tenant_id
     )
     if state_filter:
         stmt = stmt.where(ProcessInstance.state == state_filter)
@@ -399,11 +428,13 @@ async def list_process_instances(
 async def pause_process(
     instance_id: uuid.UUID,
     db: DBDep,
-    current_user: CurrentActiveUser,
+    current_user: CurrentActiveUser = None,
+    service: CurrentService = None,
 ) -> ProcessInstanceResponse:
     """Pause a running process."""
+    auth = _resolve_user(current_user, service)
     instance = await db.get(ProcessInstance, instance_id)
-    if not instance or instance.tenant_id != current_user.tenant_id:
+    if not instance or instance.tenant_id != auth.tenant_id:
         raise HTTPException(status_code=404, detail="Process instance not found")
     if instance.state != "active":
         raise HTTPException(status_code=409, detail=f"Cannot pause: process is {instance.state}")
@@ -412,7 +443,7 @@ async def pause_process(
     instance.execution_log = (instance.execution_log or []) + [{
         "action": "pause",
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "user": current_user.email,
+        "user": auth.email,
     }]
     await db.commit()
     await db.refresh(instance)
@@ -425,11 +456,13 @@ async def pause_process(
 async def resume_process(
     instance_id: uuid.UUID,
     db: DBDep,
-    current_user: CurrentActiveUser,
+    current_user: CurrentActiveUser = None,
+    service: CurrentService = None,
 ) -> ProcessInstanceResponse:
     """Resume a paused process."""
+    auth = _resolve_user(current_user, service)
     instance = await db.get(ProcessInstance, instance_id)
-    if not instance or instance.tenant_id != current_user.tenant_id:
+    if not instance or instance.tenant_id != auth.tenant_id:
         raise HTTPException(status_code=404, detail="Process instance not found")
     if instance.state != "paused":
         raise HTTPException(status_code=409, detail=f"Cannot resume: process is {instance.state}")
@@ -438,7 +471,7 @@ async def resume_process(
     instance.execution_log = (instance.execution_log or []) + [{
         "action": "resume",
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "user": current_user.email,
+        "user": auth.email,
     }]
     await db.commit()
     await db.refresh(instance)
@@ -451,11 +484,13 @@ async def resume_process(
 async def cancel_process(
     instance_id: uuid.UUID,
     db: DBDep,
-    current_user: CurrentActiveUser,
+    current_user: CurrentActiveUser = None,
+    service: CurrentService = None,
 ) -> ProcessInstanceResponse:
     """Cancel a running or paused process."""
+    auth = _resolve_user(current_user, service)
     instance = await db.get(ProcessInstance, instance_id)
-    if not instance or instance.tenant_id != current_user.tenant_id:
+    if not instance or instance.tenant_id != auth.tenant_id:
         raise HTTPException(status_code=404, detail="Process instance not found")
     if instance.state not in ("active", "paused"):
         raise HTTPException(status_code=409, detail=f"Cannot cancel: process is {instance.state}")
@@ -465,7 +500,7 @@ async def cancel_process(
     instance.execution_log = (instance.execution_log or []) + [{
         "action": "cancel",
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "user": current_user.email,
+        "user": auth.email,
     }]
     await db.commit()
     await db.refresh(instance)
@@ -478,16 +513,14 @@ async def cancel_process(
 async def generate_document(
     instance_id: uuid.UUID,
     db: DBDep,
-    current_user: CurrentActiveUser,
+    current_user: CurrentActiveUser = None,
+    service: CurrentService = None,
     block_key: str | None = Query(None),
 ) -> dict:
-    """Generate a document for a process block. Fills placeholders with field values.
-
-    For blocks of type 'document' with config.start_actions containing generate_docx,
-    this endpoint renders the template with field_values from the process instance.
-    """
+    """Generate a document for a process block."""
+    auth = _resolve_user(current_user, service)
     instance = await db.get(ProcessInstance, instance_id)
-    if not instance or instance.tenant_id != current_user.tenant_id:
+    if not instance or instance.tenant_id != auth.tenant_id:
         raise HTTPException(status_code=404, detail="Process instance not found")
 
     # Find document blocks
@@ -533,7 +566,7 @@ async def generate_document(
         "action": "generate_doc",
         "blocks": list(set(g["block_key"] for g in generated)),
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "user": current_user.email,
+        "user": auth.email,
     }
     instance.execution_log = (instance.execution_log or []) + [log_entry]
     await db.commit()

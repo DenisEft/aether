@@ -28,7 +28,7 @@ from sqlalchemy import select
 
 from app.core.security import decode_token
 from app.database import async_session_factory
-from app.services.ws_manager import WebSocketManager
+from app.services.ws_manager import WebSocketManager, ws_manager
 
 logger = logging.getLogger("aether.ws")
 
@@ -38,9 +38,6 @@ router = APIRouter()
 
 HEARTBEAT_INTERVAL = 30
 MAX_MISSED_HEARTBEATS = 3
-
-# Global WebSocket manager instance
-ws_manager = WebSocketManager()
 
 
 # ── Helpers ──────────────────────────────────────────────────

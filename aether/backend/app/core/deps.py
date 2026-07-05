@@ -29,12 +29,17 @@ DBDep = Annotated[AsyncSession, Depends(get_db)]
 async def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(security_scheme)],
     db: DBDep,
-) -> User:
-    """Extract and validate JWT bearer token, return the authenticated user."""
+) -> User | None:
+    """Extract and validate JWT bearer token, return the authenticated user.
+    Returns None for M2M service tokens.
+    """
     token = credentials.credentials
     payload = decode_token(token)
     if payload is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
+
+    if payload.get("type") == "m2m":
+        return None  # M2M token — no user object
 
     user_id: str | None = payload.get("sub")
     if user_id is None:
@@ -51,9 +56,9 @@ async def get_current_user(
 CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
-async def get_current_active_user(current_user: CurrentUser) -> User:
+async def get_current_active_user(current_user: CurrentUser) -> User | None:
     """Reject inactive or deleted users.
-    Returns the user if M2M token (current_user is None) — services handle this case.
+    Returns None for M2M tokens — services handle this case.
     """
     if current_user is None:
         return None  # M2M service token — no user object
@@ -62,6 +67,9 @@ async def get_current_active_user(current_user: CurrentUser) -> User:
     if getattr(current_user, "is_deleted", False):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Account has been deleted")
     return current_user
+
+
+CurrentActiveUser = Annotated[User | None, Depends(get_current_active_user)]
 
 
 CurrentActiveUser = Annotated[User, Depends(get_current_active_user)]
@@ -94,6 +102,7 @@ async def get_current_service(
         "service": sub.replace("service:", ""),
         "scopes": payload.get("scopes", []),
         "token_type": payload.get("type", "m2m"),
+        "tenant_id": payload.get("tenant_id"),
     }
 
 

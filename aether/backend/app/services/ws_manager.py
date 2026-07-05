@@ -241,3 +241,7 @@ class WebSocketManager:
         except Exception as e:
             logger.error("Failed to send read receipt: %s", e, exc_info=True)
             return 0
+
+
+# Global singleton — instantiated once, used by ws.py and processes.py
+ws_manager = WebSocketManager()
