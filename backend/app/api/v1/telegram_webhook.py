@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.manager import ai_manager
 from app.config import settings
-from app.database import get_session
+from app.database import get_db
 
 logger = logging.getLogger("aether.webhooks.telegram")
 router = APIRouter(tags=["webhooks"])
@@ -156,7 +156,11 @@ async def _save_message(
     tokens_used: int | None = None,
     db: AsyncSession | None = None,
 ) -> None:
-    """Save a message to the conversation history."""
+    """Save a message to the conversation history.
+
+    Uses db.add() + db.flush() only — caller is responsible for db.commit().
+    This avoids interfering with the parent session lifecycle (Depends/get_session).
+    """
     if not db:
         return
     from uuid import UUID as UUIDType
@@ -174,10 +178,10 @@ async def _save_message(
             tokens_used=tokens_used,
         )
         db.add(msg)
-        await db.commit()
-        logger.debug(f"Message saved: role={role}, intent={intent}, len={len(content)}")
+        await db.flush()
+        logger.debug(f"Message staged: role={role}, intent={intent}, len={len(content)}")
     except Exception as e:
-        logger.error(f"Failed to save message: {e}", exc_info=True)
+        logger.error(f"Failed to stage message: {e}", exc_info=True)
 
 
 # ── Core Webhook ──────────────────────────────────────────────
@@ -187,7 +191,7 @@ async def _save_message(
 async def telegram_webhook(
     channel_id: str,
     request: Request,
-    db: AsyncSession = Depends(get_session),
+    db: AsyncSession = Depends(get_db),
 ):
     """Receive Telegram update → run AI funnel → reply to user.
 
@@ -359,6 +363,12 @@ async def telegram_webhook(
                     )
             except Exception as e:
                 logger.error(f"Callback AI funnel failed: {e}", exc_info=True)
+
+    # ── Final commit: flush all staged messages in one transaction ─────
+    try:
+        await db.commit()
+    except Exception as e:
+        logger.warning(f"Final commit failed (non-fatal): {e}")
 
     # Always return 200 OK for Telegram
     return {"ok": True}

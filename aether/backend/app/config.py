@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Annotated
-
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -37,15 +35,10 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=15, ge=1)
     REFRESH_TOKEN_EXPIRE_DAYS: int = Field(default=30, ge=1)
 
-    # ── M2M Authentication ───────────────────────────────────────────
-    AETHER_M2M_SECRET: str = Field(
+    # ── M2M Authentication ─────────────────────────────────────────────────
+    M2M_SECRET: str = Field(
         default="vela-aether-m2m-secret-dev-2026",
-        description="Secret key for M2M authentication",
-    )
-    AETHER_M2M_TOKEN_EXPIRE_MINUTES: int = Field(
-        default=60,
-        ge=1,
-        description="Expiration time for M2M tokens in minutes",
+        description="Secret key for M2M token signing (REQUIRED)",
     )
 
     # ── Magic Link ────────────────────────────────────────────
@@ -93,6 +86,12 @@ class Settings(BaseSettings):
     CELERY_RESULT_BACKEND: str = Field(
         default="",
         description="Celery result backend (defaults to REDIS_URL when empty)",
+    )
+
+    # ── Channels / Webhooks ──────────────────────────────────
+    TELEGRAM_BOT_TOKEN: str = Field(
+        default="",
+        description="Telegram Bot API token for sending replies via webhook",
     )
 
     # ── Environment ───────────────────────────────────────────
