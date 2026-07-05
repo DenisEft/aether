@@ -37,14 +37,47 @@ def __b64decode(s: bytes | str) -> str:
         s = s.encode()
     return _b64.b64decode(s).decode()
 
-TEST_USER_PASSWORD = "UEBzc3cwcmQhMjAyNA=="
-TEST_ADMIN_PASSWORD = "QWRtaW4xMjMh"
+TEST_USER_PASSWORD = __b64decode("UEBzc3cwcmQhMjAyNA==")
+TEST_ADMIN_PASSWORD = __b64decode("QWRtaW4xMjMh")
+
+
+def _patch_sqlite_types():
+    """Add visit methods for PostgreSQL types to SQLiteTypeCompiler.
+
+    Returns a dict of {attr: old_value} for teardown.
+    """
+    from sqlalchemy import JSON, LargeBinary
+    from sqlalchemy.dialects.postgresql import JSONB, BYTEA, ARRAY
+    from sqlalchemy.dialects.sqlite.base import SQLiteTypeCompiler
+
+    saved = {}
+
+    if not hasattr(SQLiteTypeCompiler, 'visit_JSONB'):
+        def visit_JSONB(self, type_, **kw):
+            return self.visit_JSON(JSON(), **kw)
+        SQLiteTypeCompiler.visit_JSONB = visit_JSONB
+        saved['visit_JSONB'] = None  # was missing
+
+    if not hasattr(SQLiteTypeCompiler, 'visit_BYTEA'):
+        def visit_BYTEA(self, type_, **kw):
+            return self.visit_BINARY(LargeBinary(), **kw)
+        SQLiteTypeCompiler.visit_BYTEA = visit_BYTEA
+        saved['visit_BYTEA'] = None
+
+    if not hasattr(SQLiteTypeCompiler, 'visit_ARRAY'):
+        def visit_ARRAY(self, type_, **kw):
+            return self.visit_JSON(JSON(), **kw)
+        SQLiteTypeCompiler.visit_ARRAY = visit_ARRAY
+        saved['visit_ARRAY'] = None
+
+    return saved
 
 
 # ── Session-scoped: create test engine + create_all once ──
 
 @pytest_asyncio.fixture(scope="session")
 async def test_engine():
+    saved = _patch_sqlite_types()
     engine = create_async_engine(
         TEST_DB_URI,
         echo=False,
@@ -57,6 +90,12 @@ async def test_engine():
 
     yield engine
 
+    # Teardown: remove patched visit methods
+    for attr in saved:
+        if saved[attr] is None:
+            delattr(SQLiteTypeCompiler, attr)
+        else:
+            setattr(SQLiteTypeCompiler, attr, saved[attr])
     await engine.dispose()
 
 
