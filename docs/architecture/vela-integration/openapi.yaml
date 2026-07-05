@@ -1,0 +1,877 @@
+openapi: "3.1.0"
+info:
+  title: Vela→Aether Integration API
+  description: |
+    ProcessBot generation + Deploy bridge between Vela (process constructor)
+    and Aether (SaaS platform). Machine-readable contract for end-to-end
+    type safety and contract testing.
+  version: "1.0.0"
+  contact:
+    name: Denis Eftimitsa
+    email: denis.eftimitsa@coalstar.ru
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local development
+  - url: https://aether.coalstar.ru/api/v1
+    description: Production
+
+security:
+  - BearerAuth: []
+  - M2MAuth: []
+
+paths:
+  # ═══════════════════════════════════════════════════════════════
+  # ProcessBot — AI Process Generation
+  # ═══════════════════════════════════════════════════════════════
+
+  /process-definitions/generate:
+    post:
+      operationId: generateProcessDefinition
+      summary: Generate a process definition from image or text (AI)
+      description: |
+        VIP feature. Requires `processbot:generate` scope or active
+        subscription with available credits. Supports image (vision)
+        and text (NLP) input types.
+      tags: [ProcessBot]
+      security:
+        - BearerAuth: []
+        - M2MAuth: ["processbot:generate"]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateRequest"
+      responses:
+        "200":
+          description: Process generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "402":
+          $ref: "#/components/responses/InsufficientCredits"
+        "413":
+          $ref: "#/components/responses/FileTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/UnprocessableContent"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/AIModelUnavailable"
+
+  /process-definitions/generate/status/{taskId}:
+    get:
+      operationId: getGenerationStatus
+      summary: Check async generation status
+      tags: [ProcessBot]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Generation status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerationStatus"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ═══════════════════════════════════════════════════════════════
+  # Deploy Bridge — Vela → Aether Instance
+  # ═══════════════════════════════════════════════════════════════
+
+  /deploy:
+    post:
+      operationId: deployInstance
+      summary: Deploy a new Aether instance from Vela process
+      description: |
+        Creates a fully-provisioned Aether tenant from a Vela process
+        definition + pages + channels. Orchestrates tenant creation,
+        DB provisioning, process seeding, subscription activation,
+        and channel configuration.
+      tags: [Deploy]
+      security:
+        - M2MAuth: ["deploy:write"]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeployManifest"
+      responses:
+        "201":
+          description: Instance deployed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeployResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: Slug or domain conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConflictError"
+        "422":
+          $ref: "#/components/responses/UnprocessableContent"
+
+  /deploy/status/{tenantId}:
+    get:
+      operationId: getDeployStatus
+      summary: Check deployed instance health and status
+      tags: [Deploy]
+      security:
+        - M2MAuth: ["deploy:read"]
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Instance status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeployStatus"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /deploy/update/{tenantId}:
+    post:
+      operationId: updateInstance
+      summary: Update instance with new process version
+      tags: [Deploy]
+      security:
+        - M2MAuth: ["deploy:write"]
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeployUpdateRequest"
+      responses:
+        "200":
+          description: Instance updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeployUpdateResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Version conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConflictError"
+
+  /deploy/{tenantId}:
+    delete:
+      operationId: undeployInstance
+      summary: Undeploy (suspend or delete) an instance
+      tags: [Deploy]
+      security:
+        - M2MAuth: ["deploy:delete"]
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: hard
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: retentionDays
+          in: query
+          schema:
+            type: integer
+            default: 30
+            minimum: 1
+            maximum: 365
+      responses:
+        "200":
+          description: Instance undeployed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UndeployResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+# ═══════════════════════════════════════════════════════════════════
+# Components
+# ═══════════════════════════════════════════════════════════════════
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: User JWT (regular auth)
+    M2MAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Machine-to-machine JWT (scope-restricted, short-lived)
+
+  schemas:
+    # ── ProcessBot ──
+
+    GenerateRequest:
+      type: object
+      required: [input_type, title]
+      properties:
+        input_type:
+          type: string
+          enum: [image, text, events]
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+          example: "Процесс приёмки груза"
+        files:
+          type: array
+          maxItems: 5
+          items:
+            $ref: "#/components/schemas/FileAttachment"
+        text:
+          type: string
+          maxLength: 5000
+          description: Natural language process description (if input_type=text)
+        options:
+          $ref: "#/components/schemas/GenerateOptions"
+
+    FileAttachment:
+      type: object
+      required: [filename, mime_type, data]
+      properties:
+        filename:
+          type: string
+          example: "board-photo.jpg"
+        mime_type:
+          type: string
+          enum: [image/jpeg, image/png, image/webp]
+        data:
+          type: string
+          format: byte
+          description: Base64-encoded file content
+
+    GenerateOptions:
+      type: object
+      properties:
+        model_preference:
+          type: string
+          enum: [auto, local, cloud]
+          default: auto
+        auto_layout:
+          type: boolean
+          default: true
+        generate_pages:
+          type: boolean
+          default: true
+        language:
+          type: string
+          default: "ru"
+          enum: [ru, en]
+
+    GenerateResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [success, async_started]
+        process_definition:
+          $ref: "#/components/schemas/GeneratedProcessDefinition"
+        billing:
+          $ref: "#/components/schemas/BillingInfo"
+        warnings:
+          type: array
+          items:
+            type: string
+
+    GeneratedProcessDefinition:
+      type: object
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        blocks:
+          type: array
+          items:
+            $ref: "#/components/schemas/GeneratedBlock"
+        connections:
+          type: array
+          items:
+            $ref: "#/components/schemas/GeneratedConnection"
+        suggested_pages:
+          type: array
+          items:
+            $ref: "#/components/schemas/SuggestedPage"
+
+    GeneratedBlock:
+      type: object
+      properties:
+        key:
+          type: string
+          example: "b1"
+        block_type:
+          type: string
+          example: "task"
+        label:
+          type: string
+          example: "Проверка накладной"
+        description:
+          type: string
+        position_x:
+          type: integer
+        position_y:
+          type: integer
+        config:
+          type: object
+
+    GeneratedConnection:
+      type: object
+      properties:
+        source:
+          type: string
+        target:
+          type: string
+        source_port:
+          type: string
+          default: "out"
+        target_port:
+          type: string
+          default: "in"
+        label:
+          type: string
+
+    SuggestedPage:
+      type: object
+      properties:
+        route:
+          type: string
+          example: "/dashboard"
+        title:
+          type: string
+          example: "Панель управления"
+        component_type:
+          type: string
+          enum: [dashboard, list, form, custom]
+        layout_config:
+          type: string
+          description: JSON string of vue-grid-layout config
+
+    BillingInfo:
+      type: object
+      properties:
+        credits_used:
+          type: integer
+          example: 50
+        model_used:
+          type: string
+          example: "deepseek-v4-pro"
+        tokens:
+          type: object
+          properties:
+            input:
+              type: integer
+            output:
+              type: integer
+
+    GenerationStatus:
+      type: object
+      properties:
+        task_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [queued, processing, completed, failed]
+        progress:
+          type: object
+          properties:
+            stage:
+              type: string
+              example: "vision"
+            percentage:
+              type: integer
+              minimum: 0
+              maximum: 100
+            message:
+              type: string
+        result:
+          $ref: "#/components/schemas/GenerateResponse"
+
+    # ── Deploy ──
+
+    DeployManifest:
+      type: object
+      required: [tenant, owner]
+      properties:
+        version:
+          type: string
+          default: "1.0.0"
+        tenant:
+          $ref: "#/components/schemas/DeployTenant"
+        owner:
+          $ref: "#/components/schemas/DeployOwner"
+        process:
+          $ref: "#/components/schemas/DeployProcess"
+        pages:
+          type: array
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/DeployPage"
+        channels:
+          type: array
+          maxItems: 5
+          items:
+            $ref: "#/components/schemas/DeployChannel"
+        subscription:
+          $ref: "#/components/schemas/DeploySubscription"
+        ai_config:
+          $ref: "#/components/schemas/DeployAIConfig"
+
+    DeployTenant:
+      type: object
+      required: [slug, name]
+      properties:
+        slug:
+          type: string
+          pattern: "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
+          maxLength: 50
+          example: "coalstar-logistics"
+        name:
+          type: string
+          maxLength: 255
+          example: "Логистика Coalstar"
+        timezone:
+          type: string
+          default: "UTC"
+          example: "Asia/Vladivostok"
+        locale:
+          type: string
+          default: "ru"
+          enum: [ru, en]
+        primary_color:
+          type: string
+          pattern: "^#[0-9a-fA-F]{6}$"
+          default: "#1a73e8"
+        domain:
+          type: string
+          format: hostname
+
+    DeployOwner:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+
+    DeployProcess:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+        blocks:
+          type: array
+          maxItems: 100
+          items:
+            type: object
+        connections:
+          type: array
+          items:
+            type: object
+        fields:
+          type: array
+          items:
+            type: object
+        stages:
+          type: array
+          items:
+            type: object
+
+    DeployPage:
+      type: object
+      required: [route, component_type]
+      properties:
+        route:
+          type: string
+          pattern: "^/"
+          example: "/dashboard"
+        title:
+          type: string
+        component_type:
+          type: string
+          enum: [dashboard, list, form, custom]
+        layout_config:
+          type: string
+          description: JSON string of vue-grid-layout config
+        blocks_visible:
+          type: array
+          items:
+            type: string
+
+    DeployChannel:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [telegram, web_widget, email]
+        name:
+          type: string
+        config:
+          type: object
+
+    DeploySubscription:
+      type: object
+      properties:
+        plan_id:
+          type: string
+          example: "pro"
+        trial_days:
+          type: integer
+          default: 14
+          maximum: 90
+
+    DeployAIConfig:
+      type: object
+      properties:
+        enabled_features:
+          type: array
+          items:
+            type: string
+          example: ["document_classification", "eta_prediction"]
+        preferred_model:
+          type: string
+          enum: [auto, local, cloud]
+          default: auto
+        max_monthly_tokens:
+          type: integer
+          default: 100000
+
+    DeployResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [deployed]
+        tenant_id:
+          type: string
+          format: uuid
+        tenant_slug:
+          type: string
+        urls:
+          type: object
+          properties:
+            workspace:
+              type: string
+              format: uri
+            admin:
+              type: string
+              format: uri
+            telegram_bot:
+              type: string
+              format: uri
+        owner_invite:
+          type: object
+          properties:
+            email:
+              type: string
+            invite_url:
+              type: string
+              format: uri
+            expires_at:
+              type: string
+              format: date-time
+        subscription:
+          type: object
+          properties:
+            plan:
+              type: string
+            trial_ends_at:
+              type: string
+              format: date-time
+            status:
+              type: string
+              enum: [trialing, active]
+        deployed_at:
+          type: string
+          format: date-time
+
+    DeployStatus:
+      type: object
+      properties:
+        tenant_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [healthy, degraded, suspended]
+        process_version:
+          type: integer
+        latest_source_version:
+          type: integer
+        update_available:
+          type: boolean
+        pages_count:
+          type: integer
+        active_users:
+          type: integer
+        channels_active:
+          type: object
+        billing:
+          type: object
+          properties:
+            plan:
+              type: string
+            status:
+              type: string
+            usage_this_month:
+              type: object
+              properties:
+                credits:
+                  type: integer
+                ai_tokens:
+                  type: integer
+        last_deployed:
+          type: string
+          format: date-time
+        uptime_hours:
+          type: integer
+
+    DeployUpdateRequest:
+      type: object
+      properties:
+        source_process_id:
+          type: string
+          format: uuid
+        new_version:
+          type: integer
+          minimum: 1
+        process:
+          type: object
+        pages:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeployPage"
+        migrate_strategy:
+          type: string
+          enum: [auto, manual, dry_run]
+          default: auto
+
+    DeployUpdateResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [updated]
+        previous_version:
+          type: integer
+        new_version:
+          type: integer
+        migrated_instances:
+          type: integer
+        pages_updated:
+          type: integer
+        pages_added:
+          type: integer
+        pages_removed:
+          type: integer
+
+    UndeployResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [suspended, deleted]
+        tenant_id:
+          type: string
+          format: uuid
+        data_retention_until:
+          type: string
+          format: date-time
+        reactivation_possible:
+          type: boolean
+
+    ConflictError:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "error"
+        error:
+          type: string
+          example: "slug_taken"
+        message:
+          type: string
+        available_suggestions:
+          type: array
+          items:
+            type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "error"
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: array
+          items:
+            type: string
+
+  # ── Standard Responses ──
+
+  responses:
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    InsufficientCredits:
+      description: Not enough credits for operation
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/ErrorResponse"
+              - type: object
+                properties:
+                  required_credits:
+                    type: integer
+                  available_credits:
+                    type: integer
+                  upgrade_url:
+                    type: string
+
+    FileTooLarge:
+      description: Uploaded file exceeds size limit (10MB)
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/ErrorResponse"
+              - type: object
+                properties:
+                  max_size_bytes:
+                    type: integer
+                  actual_size_bytes:
+                    type: integer
+
+    UnsupportedMediaType:
+      description: Unsupported file format
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/ErrorResponse"
+              - type: object
+                properties:
+                  supported_types:
+                    type: array
+                    items:
+                      type: string
+
+    UnprocessableContent:
+      description: Semantic error (e.g., image too complex, no diagram detected)
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/ErrorResponse"
+              - type: object
+                properties:
+                  max_blocks:
+                    type: integer
+                  detected_blocks:
+                    type: integer
+
+    RateLimited:
+      description: Too many requests
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    AIModelUnavailable:
+      description: AI model error or timeout
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/ErrorResponse"
+              - type: object
+                properties:
+                  model:
+                    type: string
+                  fallback_available:
+                    type: boolean
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+# ═══════════════════════════════════════════════════════════════════
+# Tags
+# ═══════════════════════════════════════════════════════════════════
+
+tags:
+  - name: ProcessBot
+    description: AI-powered process generation (VIP feature)
+  - name: Deploy
+    description: Vela→Aether instance deployment bridge

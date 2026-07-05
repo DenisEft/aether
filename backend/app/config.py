@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Annotated
-
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -36,6 +34,12 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = Field(default="HS256", description="JWT signing algorithm")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=15, ge=1)
     REFRESH_TOKEN_EXPIRE_DAYS: int = Field(default=30, ge=1)
+
+    # ── M2M Authentication ─────────────────────────────────────────────────
+    M2M_SECRET: str = Field(
+        default="vela-aether-m2m-secret-dev-2026",
+        description="Secret key for M2M token signing (REQUIRED)",
+    )
 
     # ── Magic Link ────────────────────────────────────────────
     MAGIC_LINK_EXPIRE_MINUTES: int = Field(default=15, ge=1)
