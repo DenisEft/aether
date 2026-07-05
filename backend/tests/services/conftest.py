@@ -3,14 +3,38 @@
 All fixtures use transaction-level rollback — no test data leaks between tests.
 """
 
-import pytest
 from uuid import uuid4
+
+import pytest
+
+# Patch SQLite dialect for PostgreSQL types BEFORE any model import
+from sqlalchemy import JSON, LargeBinary
+from sqlalchemy.dialects.sqlite.base import SQLiteTypeCompiler
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.services.document_service import DocumentCreate, DocumentService
-from app.services.template_service import TemplateService, TemplateCreate
-from app.models.documents import Template
+if not hasattr(SQLiteTypeCompiler, "visit_JSONB"):
+
+    def _visit_JSONB(self, type_, **kw):  # noqa: N802
+        return self.visit_JSON(JSON(), **kw)
+
+    SQLiteTypeCompiler.visit_JSONB = _visit_JSONB
+if not hasattr(SQLiteTypeCompiler, "visit_BYTEA"):
+
+    def _visit_BYTEA(self, type_, **kw):  # noqa: N802
+        return self.visit_BINARY(LargeBinary(), **kw)
+
+    SQLiteTypeCompiler.visit_BYTEA = _visit_BYTEA
+if not hasattr(SQLiteTypeCompiler, "visit_ARRAY"):
+
+    def _visit_ARRAY(self, type_, **kw):  # noqa: N802
+        return self.visit_JSON(JSON(), **kw)
+
+    SQLiteTypeCompiler.visit_ARRAY = _visit_ARRAY
+
 from app.models.ai import Intent
+from app.models.documents import Template
+from app.services.document_service import DocumentCreate, DocumentService
+from app.services.template_service import TemplateCreate, TemplateService
 
 
 @pytest.fixture
@@ -87,9 +111,7 @@ def test_template_data(test_tenant_id):
         ],
         "description": "Test template for unit tests",
         "icon": "📦",
-        "statuses": [
-            {"key": "new", "label": "Новый", "color": "#6b7280", "is_initial": True}
-        ],
+        "statuses": [{"key": "new", "label": "Новый", "color": "#6b7280", "is_initial": True}],
     }
 
 
@@ -149,8 +171,8 @@ def test_template_order(test_tenant_id):
         document_type="order",
         fields=[
             {"key": "cargo", "label": "Груз", "type": "text", "required": True},
-            {"key": "weight", "label": "Вес", "type": "text", "pattern": r'(\d+)[\s]*(?:тн|тонн)'},
-            {"key": "amount", "label": "Сумма", "type": "text", "pattern": r'(\d+)[\s]*(?:руб|₽)'},
+            {"key": "weight", "label": "Вес", "type": "text", "pattern": r"(\d+)[\s]*(?:тн|тонн)"},
+            {"key": "amount", "label": "Сумма", "type": "text", "pattern": r"(\d+)[\s]*(?:руб|₽)"},
         ],
         statuses=[
             {"key": "new", "label": "Новый", "color": "#6b7280", "is_initial": True},
@@ -169,7 +191,7 @@ def test_template_invoice(test_tenant_id):
         document_type="invoice",
         fields=[
             {"key": "invoice_number", "label": "Номер счёта", "type": "text", "required": True},
-            {"key": "amount", "label": "Сумма", "type": "text", "pattern": r'(\d+)[\s]*(?:руб|₽)'},
+            {"key": "amount", "label": "Сумма", "type": "text", "pattern": r"(\d+)[\s]*(?:руб|₽)"},
         ],
         statuses=[
             {"key": "draft", "label": "Черновик", "color": "#6b7280", "is_initial": True},

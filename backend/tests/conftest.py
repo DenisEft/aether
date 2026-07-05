@@ -1,18 +1,17 @@
 """Test fixtures for Aether backend."""
+
 from __future__ import annotations
 
-import os
-import base64
-import hashlib
-import uuid
+from base64 import b64decode as _b64decode
 from collections.abc import AsyncGenerator
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
+import hashlib
+import os
+import uuid
 
-import pytest
-import pytest_asyncio
 from faker import Faker
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import text
+import pytest_asyncio
 from sqlalchemy.dialects.sqlite.base import SQLiteTypeCompiler
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -30,63 +29,95 @@ for k, v in {
     os.environ.setdefault(k, v)
 
 fake = Faker()
-import base64 as _b64
+
+
 def __b64decode(s: bytes | str) -> str:
     """Decode base64 safely."""
     if isinstance(s, str):
         s = s.encode()
-    return _b64.b64decode(s).decode()
+    return _b64decode(s).decode()
+
 
 TEST_USER_PASSWORD = __b64decode(b"UEBzc3cwcmQhMjAyNA==")
 TEST_ADMIN_PASSWORD = __b64decode(b"QWRtaW4xMjMh")
 
 
 def _patch_sqlite_types():
+    """Add visit methods for PostgreSQL types to SQLiteTypeCompiler.
+
+    Returns a dict of {attr: old_value} for teardown.
+    """
     from sqlalchemy import JSON, LargeBinary
-    from sqlalchemy.dialects.postgresql import JSONB, BYTEA, ARRAY
     from sqlalchemy.dialects.sqlite.base import SQLiteTypeCompiler
 
-    orig = SQLiteTypeCompiler.process
+    saved = {}
 
-    def patched(self, type_, **kw):
-        if isinstance(type_, JSONB):
-            return self.visit_JSON(JSON())
-        if isinstance(type_, ARRAY):
-            return self.visit_JSON(JSON())
-        if isinstance(type_, BYTEA):
-            return self.visit_BINARY(LargeBinary())
-        return orig(self, type_, **kw)
+    if not hasattr(SQLiteTypeCompiler, "visit_JSONB"):
 
-    SQLiteTypeCompiler.process = patched
-    return orig
+        def visit_JSONB(self, type_, **kw):  # noqa: N802
+            return self.visit_JSON(JSON(), **kw)
+
+        SQLiteTypeCompiler.visit_JSONB = visit_JSONB
+        saved["visit_JSONB"] = None  # was missing
+
+    if not hasattr(SQLiteTypeCompiler, "visit_BYTEA"):
+
+        def visit_BYTEA(self, type_, **kw):  # noqa: N802
+            return self.visit_BINARY(LargeBinary(), **kw)
+
+        SQLiteTypeCompiler.visit_BYTEA = visit_BYTEA
+        saved["visit_BYTEA"] = None
+
+    if not hasattr(SQLiteTypeCompiler, "visit_ARRAY"):
+
+        def visit_ARRAY(self, type_, **kw):  # noqa: N802
+            return self.visit_JSON(JSON(), **kw)
+
+        SQLiteTypeCompiler.visit_ARRAY = visit_ARRAY
+        saved["visit_ARRAY"] = None
+
+    return saved
 
 
 # ── Session-scoped: create test engine + create_all once ──
 
+
 @pytest_asyncio.fixture(scope="session")
 async def test_engine():
-    orig = _patch_sqlite_types()
-    engine = create_async_engine(
-        TEST_DB_URI,
-        echo=False,
-        connect_args={"check_same_thread": False},
-    )
-    import app.models  # noqa: F401  -- registers all tables
-    from app.models.base import Base
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    saved = _patch_sqlite_types()
+    engine = None
+    try:
+        engine = create_async_engine(
+            TEST_DB_URI,
+            echo=False,
+            connect_args={"check_same_thread": False},
+        )
+        import app.models  # noqa: F401  -- registers all tables
+        from app.models.base import Base
 
-    yield engine
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
 
-    SQLiteTypeCompiler.process = orig
-    await engine.dispose()
+        yield engine
+
+    finally:
+        # Teardown: remove patched visit methods
+        for attr in saved:
+            if saved[attr] is None:
+                delattr(SQLiteTypeCompiler, attr)
+            else:
+                setattr(SQLiteTypeCompiler, attr, saved[attr])
+        if engine is not None:
+            await engine.dispose()
 
 
 # ── Per-class: patch app.database once per test class ──
 
+
 async def _truncate_test_db(test_engine):
     """Drop and recreate all tables to match current model schema."""
     from app.models.base import Base
+
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
@@ -96,6 +127,7 @@ async def _truncate_test_db(test_engine):
 async def _class_db_setup(test_engine):
     """Reset rate-limit storage, create a clean DB state, and patch the app engine."""
     import app.database as db_mod
+
     orig_engine = db_mod.engine
     orig_factory = db_mod.async_session_factory
 
@@ -115,11 +147,13 @@ async def _class_db_setup(test_engine):
 # Cleanup happens per-class in _class_db_setup (truncate + rate-limit reset).
 # No per-test reset to avoid race conditions with fixture setup ordering.
 
+
 @pytest_asyncio.fixture(autouse=True)
 async def _reset_rate_limit_per_test():
     """Reset rate-limit counters before each test."""
     try:
         from app.core.rate_limit import limiter
+
         storage = getattr(limiter, "_storage", None)
         if storage is not None:
             reset_fn = getattr(storage, "reset", None)
@@ -133,9 +167,7 @@ async def _reset_rate_limit_per_test():
 async def db(test_engine, _class_db_setup) -> AsyncGenerator[AsyncSession, None]:
     """Provide a clean DB session. DB is truncated once per test class."""
     # Reset rate limit removed from here — done via autouse fixture
-    factory = async_sessionmaker(
-        test_engine, class_=AsyncSession, expire_on_commit=False
-    )
+    factory = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
     async with factory() as session:
         yield session
         await session.rollback()
@@ -144,8 +176,10 @@ async def db(test_engine, _class_db_setup) -> AsyncGenerator[AsyncSession, None]
 @pytest_asyncio.fixture
 async def tenant(db: AsyncSession) -> dict:
     from app.models.tenants import Tenant
+
     t = Tenant(
-        id=uuid.uuid4(), name="Test Corp",
+        id=uuid.uuid4(),
+        name="Test Corp",
         slug="tc-" + uuid.uuid4().hex[:8],
     )
     db.add(t)
@@ -156,50 +190,59 @@ async def tenant(db: AsyncSession) -> dict:
 
 @pytest_asyncio.fixture
 async def user(db: AsyncSession, tenant: dict) -> dict:
-    from app.models.users import User
     from app.core.security import hash_password
+    from app.models.users import User
+
     u = User(
         id=uuid.uuid4(),
         tenant_id=uuid.UUID(tenant["id"]),
         email="test-" + uuid.uuid4().hex[:8] + "@example.com",
         full_name="Test User",
         hashed_password=hash_password(TEST_USER_PASSWORD),
-        is_active=True, is_superadmin=False,
+        is_active=True,
+        is_superadmin=False,
     )
     db.add(u)
     await db.commit()
     await db.refresh(u)
     return {
-        "id": str(u.id), "tenant_id": tenant["id"],
-        "email": u.email, "password": TEST_USER_PASSWORD,
+        "id": str(u.id),
+        "tenant_id": tenant["id"],
+        "email": u.email,
+        "password": TEST_USER_PASSWORD,
     }
 
 
 @pytest_asyncio.fixture
 async def superuser(db: AsyncSession, tenant: dict) -> dict:
-    from app.models.users import User
     from app.core.security import hash_password
+    from app.models.users import User
+
     u = User(
         id=uuid.uuid4(),
         tenant_id=uuid.UUID(tenant["id"]),
         email="admin-" + uuid.uuid4().hex[:8] + "@example.com",
         full_name="Super Admin",
         hashed_password=hash_password(TEST_ADMIN_PASSWORD),
-        is_active=True, is_superadmin=True,
+        is_active=True,
+        is_superadmin=True,
     )
     db.add(u)
     await db.commit()
     await db.refresh(u)
     return {
-        "id": str(u.id), "tenant_id": tenant["id"],
-        "email": u.email, "password": TEST_ADMIN_PASSWORD,
+        "id": str(u.id),
+        "tenant_id": tenant["id"],
+        "email": u.email,
+        "password": TEST_ADMIN_PASSWORD,
     }
 
 
 @pytest_asyncio.fixture
 async def magic_link(db: AsyncSession, user: dict) -> dict:
-    from app.models.auth import MagicLink
     import secrets
+
+    from app.models.auth import MagicLink
 
     raw_token = secrets.token_urlsafe(32)
     ml = MagicLink(
@@ -207,7 +250,7 @@ async def magic_link(db: AsyncSession, user: dict) -> dict:
         tenant_id=uuid.UUID(user["tenant_id"]),
         email=user["email"],
         token_hash=hashlib.sha256(raw_token.encode()).hexdigest(),
-        expires_at=datetime.now(timezone.utc) + timedelta(minutes=15),
+        expires_at=datetime.now(UTC) + timedelta(minutes=15),
         is_used=False,
     )
     db.add(ml)
@@ -219,6 +262,7 @@ async def magic_link(db: AsyncSession, user: dict) -> dict:
 @pytest_asyncio.fixture
 async def client(test_engine, _class_db_setup) -> AsyncGenerator[AsyncClient, None]:
     from app.main import app as fastapi_app
+
     transport = ASGITransport(app=fastapi_app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
