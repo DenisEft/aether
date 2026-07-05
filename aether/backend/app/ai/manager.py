@@ -62,7 +62,8 @@ class AIManager:
     ) -> None:
         """Billing callback that gets the billing service from the database session."""
         # This will be called from SmartRouter with the current session
-        # We can't access the session here directly, but this is a placeholder for when we get it from the calling context
+        # We can't access the session here directly, but this is a placeholder
+        # for when we get it from the calling context
         pass
 
     # === Intent Management ===
@@ -254,7 +255,8 @@ class AIManager:
             f"You are an AI assistant for a business using Aether. "
             f"Channel: {channel_type}. "
             f"Be helpful, concise, and professional. "
-            f"If this relates to a specific business process, identify the intent and extract key details."
+            f"If this relates to a specific business process, "
+            f"identify the intent and extract key details."
         )
         if result["intent_name"]:
             system_prompt += f" Detected intent: {result['intent_name']}."
@@ -311,8 +313,8 @@ ai_manager = AIManager()
 
 # Initialize with smart router if available
 try:
-    from .router import pool as inference_pool
     from .model_registry import registry as model_registry
+    from .router import pool as inference_pool
     from .smart_router import SmartRouter
 
     ai_manager = AIManager(

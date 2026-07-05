@@ -203,7 +203,7 @@ async def list_public_templates(
     # Filter out private templates that don't belong to the user's tenant
     # but include system templates (which are public by definition)
     filtered_templates = [
-        t for t in templates
+        t for t in templates 
         if t.is_public or t.tenant_id == current_user.tenant_id or t.is_system
     ]
     return TemplateListResponse(
@@ -312,7 +312,7 @@ async def get_status_options(
         template = await service.get(template_id, current_user.tenant_id)
     except TemplateNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-
+    
     return service.get_status_options(template)
 
 
@@ -328,7 +328,7 @@ async def validate_template_fields(
         template = await service.get(template_id, current_user.tenant_id)
     except TemplateNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-
+    
     errors = service.validate_fields(template, body.fields)
     return TemplateValidateResponse(
         valid=len(errors) == 0,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 import httpx
@@ -49,7 +50,7 @@ async def _send_telegram_message(
 
 async def _resolve_tenant_from_channel(channel_id: str, db: AsyncSession) -> str | None:
     """Look up tenant_id from channel configuration."""
-    from uuid import UUID as UUIDType
+    from uuid import UUID
 
     from sqlalchemy import select
 
@@ -57,7 +58,7 @@ async def _resolve_tenant_from_channel(channel_id: str, db: AsyncSession) -> str
 
     # Try UUID lookup first
     try:
-        channel_uuid = UUIDType(channel_id)
+        channel_uuid = UUID(channel_id)
         result = await db.execute(select(Channel).where(Channel.id == channel_uuid))
         channel = result.scalars().first()
         if channel:
@@ -92,7 +93,7 @@ async def _get_or_create_conversation(
     db: AsyncSession,
 ) -> str | None:
     """Find active conversation or create a new one. Returns conversation_id."""
-    from uuid import UUID as UUIDType
+    from uuid import UUID
 
     from sqlalchemy import select
 
@@ -100,14 +101,14 @@ async def _get_or_create_conversation(
 
     # Try to parse channel_id as UUID; if not, skip channel filtering
     try:
-        channel_uuid = UUIDType(channel_id)
+        channel_uuid = UUID(channel_id)
     except ValueError:
         logger.debug(f"channel_id '{channel_id}' is not a UUID — using tenant-only lookup")
         # Look for any active conversation with this external user for this tenant
         result = await db.execute(
             select(Conversation)
             .where(
-                Conversation.tenant_id == UUIDType(tenant_id),
+                Conversation.tenant_id == UUID(tenant_id),
                 Conversation.external_user_id == external_user_id,
                 Conversation.status == "active",
             )
@@ -123,7 +124,7 @@ async def _get_or_create_conversation(
     result = await db.execute(
         select(Conversation)
         .where(
-            Conversation.tenant_id == UUIDType(tenant_id),
+            Conversation.tenant_id == UUID(tenant_id),
             Conversation.channel_id == channel_uuid,
             Conversation.external_user_id == external_user_id,
             Conversation.status == "active",
@@ -137,7 +138,7 @@ async def _get_or_create_conversation(
 
     # Create new conversation
     conv = Conversation(
-        tenant_id=UUIDType(tenant_id),
+        tenant_id=UUID(tenant_id),
         channel_id=channel_uuid,
         external_user_id=external_user_id,
         status="active",
@@ -165,14 +166,14 @@ async def _save_message(
     """
     if not db:
         return
-    from uuid import UUID as UUIDType
+    from uuid import UUID
 
     from app.models.conversations import Message
 
     try:
         msg = Message(
-            tenant_id=UUIDType(tenant_id),
-            conversation_id=UUIDType(conversation_id),
+            tenant_id=UUID(tenant_id),
+            conversation_id=UUID(conversation_id),
             role=role,
             content=content,
             intent=intent,
@@ -193,7 +194,7 @@ async def _save_message(
 async def telegram_webhook(
     channel_id: str,
     request: Request,
-    db: AsyncSession = Depends(get_db),
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     """Receive Telegram update → run AI funnel → reply to user.
 
@@ -209,7 +210,9 @@ async def telegram_webhook(
     try:
         payload = await request.json()
     except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON")
+        raise HTTPException(
+            status_code=400, detail="Invalid JSON"
+        ) from None
 
     update_id = payload.get("update_id")
     logger.debug(f"Telegram webhook [{channel_id}]: update_id={update_id}")

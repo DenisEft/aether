@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass
+from enum import Enum
 import logging
 import random
 import time
-from dataclasses import dataclass, field
-from enum import Enum
-from typing import Optional
 
-from . import BaseDriver, DriverHealth, DriverMetrics, InferenceRequest, InferenceResponse
+from . import BaseDriver, DriverHealth, InferenceRequest, InferenceResponse
 
 logger = logging.getLogger("aether.ai.router")
 
@@ -39,7 +38,7 @@ class DriverEntry:
     max_concurrent: int = 10
     _current_requests: int = 0
     _consecutive_failures: int = 0
-    _last_health: Optional[DriverHealth] = None
+    _last_health: DriverHealth | None = None
     _last_health_at: float = 0.0
 
     @property
@@ -71,7 +70,7 @@ class InferencePool:
     def __init__(self, health_check_interval: float = 30.0):
         self._drivers: dict[str, DriverEntry] = {}
         self._health_check_interval = health_check_interval
-        self._health_task: Optional[asyncio.Task] = None
+        self._health_task: asyncio.Task | None = None
         self._round_robin_idx = 0
         self._lock = asyncio.Lock()
 
@@ -97,7 +96,7 @@ class InferencePool:
         key = f"{driver_type}:{model_id}"
         self._drivers.pop(key, None)
 
-    def get_driver(self, driver_type: str, model_id: str) -> Optional[BaseDriver]:
+    def get_driver(self, driver_type: str, model_id: str) -> BaseDriver | None:
         """Get a specific driver by type and model."""
         key = f"{driver_type}:{model_id}"
         entry = self._drivers.get(key)
@@ -159,9 +158,9 @@ class InferencePool:
     def _select_driver(
         self,
         strategy: RoutingStrategy = RoutingStrategy.LEAST_LATENCY,
-        capability: Optional[str] = None,
+        capability: str | None = None,
         exclude_unhealthy: bool = True,
-    ) -> Optional[tuple[str, DriverEntry]]:
+    ) -> tuple[str, DriverEntry] | None:
         """Select the best driver based on strategy."""
 
         candidates = []
@@ -239,7 +238,7 @@ class InferencePool:
                 )
                 entry.mark_request_done(success=True)
                 return response
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 entry.mark_request_done(success=False)
                 last_error = f"Timeout after {timeout}s"
                 logger.warning(f"Driver {key} timed out")

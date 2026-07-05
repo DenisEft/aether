@@ -19,7 +19,7 @@ class TestTemplateServiceCreate:
     async def test_create_template_success(self, template_service: TemplateService, test_template_data):
         """Test successful template creation."""
         template = await template_service.create(test_template_data)
-
+        
         assert template.id is not None
         assert template.tenant_id == test_template_data["tenant_id"]
         assert template.name == test_template_data["name"]
@@ -36,9 +36,9 @@ class TestTemplateServiceCreate:
         # Remove statuses from test data to test default
         test_data = test_template_data.copy()
         test_data["statuses"] = None
-
+        
         template = await template_service.create(test_data)
-
+        
         assert len(template.statuses) == 1
         assert template.statuses[0]["key"] == "new"
         assert template.statuses[0]["label"] == "Новый"
@@ -55,7 +55,7 @@ class TestTemplateServiceCreate:
                 "type": "text"
             }
         ]
-
+        
         with pytest.raises(TemplateValidationError, match="Each field must have a 'key' field"):
             await template_service.create(test_data)
 
@@ -66,7 +66,7 @@ class TestTemplateServiceCreate:
                 "type": "text"  # Missing 'label'
             }
         ]
-
+        
         with pytest.raises(TemplateValidationError, match="Each field must have a 'label' field"):
             await template_service.create(test_data)
 
@@ -77,7 +77,7 @@ class TestTemplateServiceCreate:
                 "label": "Customer Name"  # Missing 'type'
             }
         ]
-
+        
         with pytest.raises(TemplateValidationError, match="Each field must have a 'type' field"):
             await template_service.create(test_data)
 
@@ -93,7 +93,7 @@ class TestTemplateServiceCreate:
             },
             "invalid_field"  # Invalid: should be dict
         ]
-
+        
         with pytest.raises(TemplateValidationError, match="Each field must be a dictionary"):
             await template_service.create(test_data)
 
@@ -105,7 +105,7 @@ class TestTemplateServiceGet:
     async def test_get_template_success(self, template_service: TemplateService, test_template: Template):
         """Test successful template retrieval."""
         template = await template_service.get(test_template.id, test_template.tenant_id)
-
+        
         assert template.id == test_template.id
         assert template.tenant_id == test_template.tenant_id
         assert template.name == test_template.name
@@ -123,7 +123,7 @@ class TestTemplateServiceList:
     async def test_list_templates_success(self, template_service: TemplateService, test_template: Template):
         """Test successful template listing."""
         templates, total = await template_service.list(test_template.tenant_id)
-
+        
         assert total >= 1
         assert len(templates) >= 1
         assert templates[0].id == test_template.id
@@ -131,10 +131,10 @@ class TestTemplateServiceList:
     async def test_list_templates_filter_by_document_type(self, template_service: TemplateService, test_template: Template):
         """Test template listing with document type filter."""
         templates, total = await template_service.list(
-            test_template.tenant_id,
+            test_template.tenant_id, 
             document_type=test_template.document_type
         )
-
+        
         assert total >= 1
         assert len(templates) >= 1
         assert templates[0].document_type == test_template.document_type
@@ -142,10 +142,10 @@ class TestTemplateServiceList:
     async def test_list_templates_filter_by_is_active(self, template_service: TemplateService, test_template: Template):
         """Test template listing with is_active filter."""
         templates, total = await template_service.list(
-            test_template.tenant_id,
+            test_template.tenant_id, 
             is_active=True
         )
-
+        
         assert total >= 1
         assert len(templates) >= 1
         assert templates[0].is_active is True
@@ -153,10 +153,10 @@ class TestTemplateServiceList:
     async def test_list_templates_search(self, template_service: TemplateService, test_template: Template):
         """Test template listing with search."""
         templates, total = await template_service.list(
-            test_template.tenant_id,
+            test_template.tenant_id, 
             search=test_template.name
         )
-
+        
         assert total >= 1
         assert len(templates) >= 1
         assert templates[0].name == test_template.name
@@ -173,13 +173,13 @@ class TestTemplateServiceUpdate:
             "description": "Updated description",
             "icon": "✏️"
         }
-
+        
         updated_template = await template_service.update(
-            test_template.id,
-            test_template.tenant_id,
+            test_template.id, 
+            test_template.tenant_id, 
             update_data
         )
-
+        
         assert updated_template.name == update_data["name"]
         assert updated_template.description == update_data["description"]
         assert updated_template.icon == update_data["icon"]
@@ -196,13 +196,13 @@ class TestTemplateServiceUpdate:
                 }
             ]
         }
-
+        
         updated_template = await template_service.update(
-            test_template.id,
-            test_template.tenant_id,
+            test_template.id, 
+            test_template.tenant_id, 
             update_data
         )
-
+        
         assert len(updated_template.fields) == 1
         assert updated_template.fields[0]["key"] == "new_field"
 
@@ -216,7 +216,7 @@ class TestTemplateServiceUpdate:
                 }
             ]
         }
-
+        
         with pytest.raises(TemplateValidationError, match="Each field must have a 'key' field"):
             await template_service.update(test_template.id, test_template.tenant_id, update_data)
 
@@ -225,7 +225,7 @@ class TestTemplateServiceUpdate:
         # Make the template system
         test_template.is_system = True
         await template_service._session.flush()
-
+        
         with pytest.raises(SystemTemplateProtectedError):
             await template_service.update(test_template.id, test_template.tenant_id, {"name": "should fail"})
 
@@ -238,23 +238,23 @@ class TestTemplateServiceActivateDeactivate:
         """Test template activation."""
         # First deactivate
         await template_service.deactivate(test_template.id, test_template.tenant_id)
-
+        
         # Then activate
         activated_template = await template_service.activate(test_template.id, test_template.tenant_id)
-
+        
         assert activated_template.is_active is True
 
     async def test_deactivate_template(self, template_service: TemplateService, test_template: Template):
         """Test template deactivation."""
         deactivated_template = await template_service.deactivate(test_template.id, test_template.tenant_id)
-
+        
         assert deactivated_template.is_active is False
 
     async def test_activate_system_template(self, template_service: TemplateService, test_template: Template):
         """Test activating system template (should fail)."""
         test_template.is_system = True
         await template_service._session.flush()
-
+        
         with pytest.raises(SystemTemplateProtectedError):
             await template_service.activate(test_template.id, test_template.tenant_id)
 
@@ -262,7 +262,7 @@ class TestTemplateServiceActivateDeactivate:
         """Test deactivating system template (should fail)."""
         test_template.is_system = True
         await template_service._session.flush()
-
+        
         with pytest.raises(SystemTemplateProtectedError):
             await template_service.deactivate(test_template.id, test_template.tenant_id)
 
@@ -274,14 +274,14 @@ class TestTemplateServiceDelete:
     async def test_delete_template(self, template_service: TemplateService, test_template: Template):
         """Test template soft delete."""
         deleted_template = await template_service.delete(test_template.id, test_template.tenant_id)
-
+        
         assert deleted_template.is_active is False
 
     async def test_delete_system_template(self, template_service: TemplateService, test_template: Template):
         """Test deleting system template (should fail)."""
         test_template.is_system = True
         await template_service._session.flush()
-
+        
         with pytest.raises(SystemTemplateProtectedError):
             await template_service.delete(test_template.id, test_template.tenant_id)
 
@@ -293,10 +293,10 @@ class TestTemplateServiceGetByType:
     async def test_get_by_type_success(self, template_service: TemplateService, test_template: Template):
         """Test getting templates by document type."""
         templates = await template_service.get_by_type(
-            test_template.tenant_id,
+            test_template.tenant_id, 
             test_template.document_type
         )
-
+        
         assert len(templates) >= 1
         assert templates[0].document_type == test_template.document_type
         assert templates[0].is_active is True
@@ -312,7 +312,7 @@ class TestTemplateServiceValidateFields:
             "customer_name": "John Doe",
             "amount": 100.0
         }
-
+        
         errors = template_service.validate_fields(test_template, document_fields)
         assert errors == []
 
@@ -321,7 +321,7 @@ class TestTemplateServiceValidateFields:
         document_fields = {
             "amount": 100.0  # Missing required 'customer_name'
         }
-
+        
         errors = template_service.validate_fields(test_template, document_fields)
         assert len(errors) == 1
         assert "Required field 'Customer Name' is missing" in errors[0]
@@ -332,7 +332,7 @@ class TestTemplateServiceValidateFields:
             "customer_name": "John Doe",
             "unknown_field": "some value"
         }
-
+        
         errors = template_service.validate_fields(test_template, document_fields)
         assert len(errors) == 1
         assert "Unknown field 'unknown_field'" in errors[0]
@@ -345,7 +345,7 @@ class TestTemplateServiceGetStatusOptions:
     async def test_get_status_options_success(self, template_service: TemplateService, test_template: Template):
         """Test getting status options."""
         status_options = template_service.get_status_options(test_template)
-
+        
         assert len(status_options) == 1
         assert status_options[0]["key"] == "new"
         assert status_options[0]["label"] == "Новый"
