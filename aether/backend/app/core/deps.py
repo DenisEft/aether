@@ -45,6 +45,10 @@ async def get_current_user(
     if user_id is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token missing subject")
 
+    # Service tokens (Vela etc) — sub starts with "service:"
+    if user_id.startswith("service:"):
+        return None
+
     result = await db.execute(select(User).where(User.id == uuid.UUID(user_id)))
     user = result.scalar_one_or_none()
     if user is None:
@@ -77,6 +81,8 @@ CurrentActiveUser = Annotated[User, Depends(get_current_active_user)]
 
 async def get_current_superuser(current_user: CurrentActiveUser) -> User:
     """Reject non-superuser users."""
+    if current_user is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Superuser access required")
     if not current_user.is_superadmin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Superuser access required")
     return current_user
