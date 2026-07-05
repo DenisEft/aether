@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.api.router import router as api_v1_router
 from app.api.v1.ws import router as ws_router
+from app.api.v1.ws import process_ws_router
 from app.middleware.tenant import TenantContextMiddleware
 from app.middleware.logging import RequestLoggingMiddleware
 from app.database import engine, close_engine
@@ -41,6 +42,7 @@ app.add_middleware(
 # ── Routes ────────────────────────────────────────────────────
 app.include_router(api_v1_router, prefix="/api")
 app.include_router(ws_router)
+app.include_router(process_ws_router)
 
 
 # ── Lifespan ──────────────────────────────────────────────────

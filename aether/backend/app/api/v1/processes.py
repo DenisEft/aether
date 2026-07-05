@@ -14,6 +14,7 @@ Endpoints:
 
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime, timezone
 
@@ -24,6 +25,7 @@ from sqlalchemy import select, desc
 from app.core.deps import DBDep, CurrentActiveUser
 from app.models.process_runtime import ProcessInstance, ProcessTransition
 from app.models.services import ServiceInstance
+from app.services.ws_manager import ws_manager
 
 router = APIRouter(prefix="/api/v1/processes", tags=["process-runtime"])
 
@@ -78,6 +80,30 @@ class ProcessInstanceResponse(BaseModel):
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
+
+async def _emit_process_event(instance: ProcessInstance, event_type: str, extra: dict | None = None):
+    """Emit a process event to the tenant's WebSocket channel."""
+    try:
+        definition = instance.process_definition or {}
+        process_name = definition.get("name") or definition.get("slug", "Process")
+        data = {
+            "instance_id": str(instance.id),
+            "process_name": process_name,
+            "state": instance.state,
+            "current_block_key": instance.current_block_key,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        if extra:
+            data.update(extra)
+
+        await ws_manager.broadcast_to_tenant(
+            str(instance.tenant_id),
+            "processes",
+            {"type": event_type, "data": data}
+        )
+    except Exception as e:
+        logger = logging.getLogger("aether.processes")
+        logger.warning("Failed to emit WS event %s: %s", event_type, e)
 
 def _get_block_by_key(definition: dict, key: str) -> dict | None:
     blocks = definition.get("blocks", [])
@@ -186,7 +212,9 @@ async def start_process(
     await db.commit()
     await db.refresh(instance)
 
-    # TODO: emit WS event process.started
+    # Emit WebSocket event
+    await _emit_process_event(instance, "process.started")
+
     return _instance_to_response(instance, include_full=True)
 
 
@@ -263,7 +291,15 @@ async def transition_process(
     await db.commit()
     await db.refresh(instance)
 
-    # TODO: emit WS event process.transitioned
+    # Emit WebSocket event
+    await _emit_process_event(instance, "process.transitioned", {
+        "from_block": old_block,
+        "to_block": body.to_block,
+        "label": body.label,
+        "triggered_by": body.triggered_by,
+        "comment": body.comment,
+    })
+
     return _instance_to_response(instance, include_full=True)
 
 
@@ -310,7 +346,12 @@ async def set_process_fields(
     await db.commit()
     await db.refresh(instance)
 
-    # TODO: emit WS event process.field_updated
+    # Emit WebSocket event
+    await _emit_process_event(instance, "process.field_updated", {
+        "block_key": body.block_key,
+        "fields": body.values,
+    })
+
     return _instance_to_response(instance, include_full=True)
 
 
@@ -376,7 +417,7 @@ async def pause_process(
     await db.commit()
     await db.refresh(instance)
 
-    # TODO: emit WS event process.paused
+    await _emit_process_event(instance, "process.paused")
     return _instance_to_response(instance)
 
 
@@ -402,7 +443,7 @@ async def resume_process(
     await db.commit()
     await db.refresh(instance)
 
-    # TODO: emit WS event process.resumed
+    await _emit_process_event(instance, "process.resumed")
     return _instance_to_response(instance)
 
 
@@ -429,7 +470,7 @@ async def cancel_process(
     await db.commit()
     await db.refresh(instance)
 
-    # TODO: emit WS event process.cancelled
+    await _emit_process_event(instance, "process.cancelled")
     return _instance_to_response(instance)
 
 

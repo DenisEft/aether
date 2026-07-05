@@ -46,6 +46,16 @@ const router = createRouter({
           name: 'analytics',
           component: () => import('./client/views/AnalyticsView.vue'),
         },
+        {
+          path: 'processes',
+          name: 'process-list',
+          component: () => import('./client/views/ProcessListView.vue'),
+        },
+        {
+          path: 'processes/:instanceId',
+          name: 'process-detail',
+          component: () => import('./client/views/ProcessDetailView.vue'),
+        },
       ],
     },
 

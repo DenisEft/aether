@@ -28,6 +28,15 @@
           <span class="nav-icon">⚙️</span>
           <span v-if="!sidebarCollapsed" class="nav-label">Settings</span>
         </router-link>
+        <router-link
+          :to="`/${tenantSlug}/processes`"
+          class="nav-item"
+          :class="{ active: route.name === 'process-list' || route.name === 'process-detail' }"
+          title="Processes"
+        >
+          <span class="nav-icon">⚙️</span>
+          <span v-if="!sidebarCollapsed" class="nav-label">Processes</span>
+        </router-link>
       </nav>
       <div class="sidebar-footer">
         <div v-if="!sidebarCollapsed" class="user-info">
