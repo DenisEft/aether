@@ -93,6 +93,7 @@ async def _get_or_create_conversation(
 ) -> str | None:
     """Find active conversation or create a new one. Returns conversation_id."""
     from uuid import UUID as UUIDType
+    from sqlalchemy import select
 
     from app.models.conversations import Conversation
 

@@ -311,7 +311,7 @@ ai_manager = AIManager()
 
 # Initialize with smart router if available
 try:
-    from .inference_pool import pool as inference_pool
+    from .router import pool as inference_pool
     from .model_registry import registry as model_registry
     from .smart_router import SmartRouter
 

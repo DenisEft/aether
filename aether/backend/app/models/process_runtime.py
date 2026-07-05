@@ -2,18 +2,15 @@
 
 from __future__ import annotations
 
-import uuid
 from datetime import datetime
+import uuid
 
 from sqlalchemy import (
-    Boolean,
+    UUID,
     Column,
     DateTime,
     ForeignKey,
-    Integer,
     String,
-    Text,
-    UUID,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 
@@ -26,8 +23,12 @@ class ProcessInstance(Base):
     __tablename__ = "process_instances"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
-    service_instance_id = Column(UUID(as_uuid=True), ForeignKey("service_instances.id", ondelete="CASCADE"), nullable=True)
+    tenant_id = Column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    service_instance_id = Column(
+        UUID(as_uuid=True), ForeignKey("service_instances.id", ondelete="CASCADE"), nullable=True
+    )
 
     # The process definition as JSON — blocks, connections, fields, pages
     # This is a snapshot taken at deployment time from Vela
@@ -35,7 +36,9 @@ class ProcessInstance(Base):
 
     # Current state
     current_block_key = Column(String(100), nullable=True)  # which block is active
-    state = Column(String(30), nullable=False, default="active")  # active, paused, completed, failed
+    state = Column(
+        String(30), nullable=False, default="active"
+    )  # active, paused, completed, failed
 
     # Who started this
     started_by = Column(String(255), nullable=True)  # user identifier
@@ -51,14 +54,6 @@ class ProcessInstance(Base):
     execution_log = Column(JSONB, nullable=False, default=list)
     # [ { "block_key": "b1", "action": "enter", "timestamp": "...", "user": "..." }, ... ]
 
-    # Metadata context — passed from source system (Vela)
-    context = Column(JSONB, nullable=False, default=dict)
-    # { "purchase_id": "...", "source": "vela", "webhook_url": "..." }
-
-    # Source system tracking
-    source_system = Column(String(50), nullable=True, default="vela")
-    source_record_id = Column(String(255), nullable=True)  # e.g. purchase_id from Vela
-
 
 class ProcessTransition(Base):
     """A transition from one block to another during execution."""
@@ -66,7 +61,9 @@ class ProcessTransition(Base):
     __tablename__ = "process_transitions"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    instance_id = Column(UUID(as_uuid=True), ForeignKey("process_instances.id", ondelete="CASCADE"), nullable=False)
+    instance_id = Column(
+        UUID(as_uuid=True), ForeignKey("process_instances.id", ondelete="CASCADE"), nullable=False
+    )
 
     from_block = Column(String(100), nullable=False)
     to_block = Column(String(100), nullable=False)
@@ -76,10 +73,3 @@ class ProcessTransition(Base):
 
     # What field values were set/updated during this transition
     delta = Column(JSONB, nullable=True, default=dict)
-
-    # Human comment on this transition
-    comment = Column(Text, nullable=True)
-
-    # Field changes with old/new values for audit
-    field_changes = Column(JSONB, nullable=True, default=dict)
-    # { "b2": { "title": {"old": "...", "new": "..."}, ... } }

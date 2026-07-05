@@ -39,7 +39,7 @@ class RoutingResult:
 class SmartRouter:
     """Intelligent AI router with multiple routing strategies, fallback chains, and circuit breakers."""
 
-    def __init__(self, pool: InferencePool, registry: ModelRegistry,
+    def __init__(self, pool: InferencePool, registry: ModelRegistry, 
                  default_strategy: RoutingStrategy = RoutingStrategy.HYBRID,
                  billing_callback: Callable[[UUID, int, int, str, str], Awaitable[None]] | None = None):
         self.pool = pool
@@ -47,7 +47,7 @@ class SmartRouter:
         self.default_strategy = default_strategy
         self.billing_callback = billing_callback
         self._lock = asyncio.Lock()
-
+        
         # Weighted scoring configuration per strategy
         self._scoring_weights = {
             RoutingStrategy.COST_OPTIMAL: {"cost": 0.5, "latency": 0.15, "quality": 0.15, "availability": 0.2},
@@ -57,39 +57,39 @@ class SmartRouter:
             RoutingStrategy.HYBRID: {"cost": 0.3, "latency": 0.2, "quality": 0.3, "availability": 0.2},
         }
 
-    async def route(self, request: InferenceRequest,
+    async def route(self, request: InferenceRequest, 
                  strategy: RoutingStrategy | None = None) -> RoutingResult:
         """
         Route a request to the best available driver based on strategy.
-
+        
         Args:
             request: InferenceRequest to route
             strategy: Routing strategy (uses default if None)
-
+            
         Returns:
             RoutingResult with selected driver and scoring info
         """
         if strategy is None:
             strategy = self.default_strategy
-
+            
         # Get available drivers for the requested model
         available_drivers = await self._get_available_drivers(request.model, strategy)
-
+        
         if not available_drivers:
             raise RuntimeError("No drivers available for routing")
-
+            
         # Score all drivers
         scored_drivers = []
         for driver in available_drivers:
             score = await self._score_driver(driver, request, strategy)
             scored_drivers.append((driver, score))
-
+            
         # Sort by score (higher is better)
         scored_drivers.sort(key=lambda x: x[1], reverse=True)
-
+        
         # Get the best driver
         best_driver, best_score = scored_drivers[0]
-
+        
         # Check if we need to use fallback chain
         fallback_chain = []
         if not self._is_driver_healthy(best_driver):
@@ -118,11 +118,11 @@ class SmartRouter:
             fallback_chain=fallback_chain
         )
 
-    async def _get_available_drivers(self, model_id: str | None,
+    async def _get_available_drivers(self, model_id: str | None, 
                                     strategy: RoutingStrategy) -> List[BaseDriver]:
         """Get list of available drivers for a model, filtered by strategy."""
         drivers = []
-
+        
         # Get all drivers that support the requested model
         for driver in self.pool.get_all_drivers():
             # Check if driver supports the model
@@ -134,12 +134,12 @@ class SmartRouter:
             except Exception:
                 # If we can't check, assume it's available or skip it
                 pass
-
+                
         # Apply privacy filter if needed
         if strategy == RoutingStrategy.PRIVACY_FIRST:
             # Only allow local drivers
             drivers = [d for d in drivers if self._is_local_driver(d)]
-
+            
         return drivers
 
     def _is_driver_healthy(self, driver: BaseDriver) -> bool:
@@ -156,16 +156,16 @@ class SmartRouter:
         # check model configuration or driver type
         return driver.driver_type in ["local", "llama_cpp", "ollama"]
 
-    async def _score_driver(self, driver: BaseDriver, request: InferenceRequest,
+    async def _score_driver(self, driver: BaseDriver, request: InferenceRequest, 
                         strategy: RoutingStrategy) -> float:
         """
         Score a driver based on the current strategy.
-
+        
         Args:
             driver: Driver to score
             request: Request to score for
             strategy: Scoring strategy
-
+            
         Returns:
             Score (higher is better)
         """
@@ -173,19 +173,19 @@ class SmartRouter:
             # Get driver metrics
             health = await driver.health_check()
             metrics = driver.get_metrics()
-
+            
             # Get model info from registry
             model_info = self.registry.get_model(request.model) if request.model else None
-
+            
             # Get scoring weights
             weights = self._scoring_weights.get(strategy, self._scoring_weights[RoutingStrategy.HYBRID])
-
+            
             # Calculate normalized scores
             cost_score = 1.0  # Default to perfect score
-            latency_score = 1.0  # Default to perfect score
+            latency_score = 1.0  # Default to perfect score  
             quality_score = 1.0  # Default to perfect score
             availability_score = 1.0  # Default to perfect score
-
+            
             if model_info:
                 # Cost score (lower is better, so we normalize)
                 cost_per_1k = model_info.cost_per_1k_tokens_input + model_info.cost_per_1k_tokens_output
@@ -193,19 +193,19 @@ class SmartRouter:
                     cost_score = 1.0 / (1.0 + cost_per_1k)  # Inverse scaling
                 else:
                     cost_score = 1.0
-
+                
                 # Quality score (higher is better)
                 quality_score = model_info.quality_score if hasattr(model_info, 'quality_score') else 1.0
-
+            
             # Latency score (lower is better)
             if health.latency_ms > 0:
                 latency_score = 1.0 / (1.0 + health.latency_ms / 1000.0)  # Normalized by 1000ms threshold
             else:
                 latency_score = 0.5  # Medium score if latency not available
-
+                
             # Availability score (based on success rate)
             availability_score = metrics.success_rate if metrics.success_rate else 0.5
-
+            
             # Calculate final score
             score = (
                 weights["cost"] * cost_score +
@@ -213,9 +213,9 @@ class SmartRouter:
                 weights["quality"] * quality_score +
                 weights["availability"] * availability_score
             )
-
+            
             return score
-
+            
         except Exception as e:
             logger.warning(f"Error scoring driver {driver.driver_type}: {e}")
             return 0.0  # Return very low score on error
@@ -233,20 +233,20 @@ class SmartRouter:
         ]
         return fallback_chain
 
-    async def generate(self, request: InferenceRequest,
-                       strategy: RoutingStrategy | None = None,
+    async def generate(self, request: InferenceRequest, 
+                       strategy: RoutingStrategy | None = None, 
                        billing_callback: Callable[[UUID, int, int, str, str], Awaitable[None]] | None = None) -> InferenceResponse:
         """Generate response using routing strategy."""
         routing_result = await self.route(request, strategy)
         response = await routing_result.driver.generate(request)
-
+        
         # Handle billing if tenant_id is provided
         if request.tenant_id is not None:
             try:
                 # Extract usage from response
                 prompt_tokens = response.usage.get('prompt_tokens', 0)
                 completion_tokens = response.usage.get('completion_tokens', 0)
-
+                
                 # Call billing callback if provided (prefer passed callback over instance callback)
                 callback = billing_callback or self.billing_callback
                 if callback:
@@ -259,25 +259,25 @@ class SmartRouter:
                     )
             except Exception as e:
                 logger.warning(f"Billing callback failed for tenant {request.tenant_id}: {e}")
-
+        
         return response
 
-    async def generate_stream(self, request: InferenceRequest,
-                               strategy: RoutingStrategy | None = None,
+    async def generate_stream(self, request: InferenceRequest, 
+                               strategy: RoutingStrategy | None = None, 
                                billing_callback: Callable[[UUID, int, int, str, str], Awaitable[None]] | None = None):
         """Stream response using routing strategy."""
         routing_result = await self.route(request, strategy)
-
+        
         # For streaming, we need to accumulate token counts
         total_prompt_tokens = 0
         total_completion_tokens = 0
-
+        
         # Collect all chunks to calculate total tokens
         chunks = []
         async for chunk in routing_result.driver.generate_stream(request):
             chunks.append(chunk)
             yield chunk
-
+            
         # If we have tenant_id and billing callback, record usage
         if request.tenant_id is not None:
             callback = billing_callback or self.billing_callback
@@ -291,7 +291,7 @@ class SmartRouter:
                             if hasattr(chunk, 'usage') and chunk.usage:
                                 total_prompt_tokens += chunk.usage.get('prompt_tokens', 0)
                                 total_completion_tokens += chunk.usage.get('completion_tokens', 0)
-
+                        
                     await callback(
                         UUID(request.tenant_id),
                         total_prompt_tokens,
@@ -302,7 +302,7 @@ class SmartRouter:
                 except Exception as e:
                     logger.warning(f"Billing callback failed for streaming tenant {request.tenant_id}: {e}")
 
-    async def embed(self, request: EmbeddingRequest, strategy: RoutingStrategy | None = None,
+    async def embed(self, request: EmbeddingRequest, strategy: RoutingStrategy | None = None, 
                  billing_callback: Callable[[UUID, int, int, str, str], Awaitable[None]] | None = None) -> EmbeddingResponse:
         """Generate embeddings using routing strategy."""
         # For embedding, we might want to use a specific driver or fallback strategy
@@ -313,17 +313,17 @@ class SmartRouter:
             for driver in self.pool.get_all_drivers():
                 if "embedding" in [cap.value for cap in driver.capabilities()]:
                     available_drivers.append(driver)
-
+            
             if not available_drivers:
                 # If no embedding driver found, use any available driver
                 available_drivers = self.pool.get_all_drivers()
-
+                
             if available_drivers:
-
+                
                 # Route to first available driver
                 driver = available_drivers[0]  # Simple round-robin for now
                 response = await driver.embed(request)
-
+                
                 # Handle billing if tenant_id is provided
                 if request.tenant_id is not None:
                     try:
@@ -331,7 +331,7 @@ class SmartRouter:
                         prompt_tokens = response.usage.get('prompt_tokens', 0)
                         total_tokens = response.usage.get('total_tokens', 0)
                         completion_tokens = total_tokens - prompt_tokens
-
+                        
                         # Call billing callback if provided (prefer passed callback over instance callback)
                         callback = billing_callback or self.billing_callback
                         if callback:
@@ -344,11 +344,11 @@ class SmartRouter:
                             )
                     except Exception as e:
                         logger.warning(f"Billing callback failed for embedding tenant {request.tenant_id}: {e}")
-
+                
                 return response
             else:
                 raise RuntimeError("No drivers available for embedding")
-
+                
         except Exception as e:
             logger.error(f"Error generating embeddings: {e}")
             raise

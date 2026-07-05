@@ -1,216 +1,78 @@
 """Process Runtime API — execute Vela-generated business processes.
 
 Endpoints:
-  POST   /processes/start                  — Start a process instance
+  POST   /processes/{instance_id}/start      — Start a process instance
   POST   /processes/{instance_id}/transition — Move to next block
-  POST   /processes/{instance_id}/field      — Set field values (batch)
-  GET    /processes/{instance_id}            — Get current state + available transitions
+  POST   /processes/{instance_id}/field      — Set field values
+  GET    /processes/{instance_id}            — Get current state
   GET    /processes/                         — List instances for tenant
-  POST   /processes/{instance_id}/pause      — Pause execution
-  POST   /processes/{instance_id}/resume     — Resume execution
-  POST   /processes/{instance_id}/cancel     — Cancel execution
-  POST   /processes/{instance_id}/generate-document — Generate document from template
 """
 
 from __future__ import annotations
 
-import logging
+from datetime import UTC, datetime
 import uuid
-from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import select, desc
+from sqlalchemy import desc, select
 
-from app.core.deps import DBDep, CurrentActiveUser, CurrentService
+from app.core.deps import CurrentActiveUser, DBDep
 from app.models.process_runtime import ProcessInstance, ProcessTransition
-from app.models.services import ServiceInstance
-from app.services.ws_manager import ws_manager
 
-router = APIRouter(prefix="/processes", tags=["process-runtime"])
+router = APIRouter(prefix="/api/v1/processes", tags=["process-runtime"])
 
 
 # ── Schemas ──────────────────────────────────────────────────────────
 
+
 class StartProcessRequest(BaseModel):
-    tenant_id: uuid.UUID | None = None  # for M2M auth (Vela)
     service_instance_id: uuid.UUID | None = None
     process_definition: dict = Field(..., description="Full process JSON from Vela")
     started_by: str | None = None
-    initial_field_values: dict = Field(default_factory=dict, description="Pre-filled field values per block key")
-    context: dict = Field(default_factory=dict, description="External context: purchase_id, source, etc.")
-    webhook_url: str | None = Field(None, description="Aether will POST state changes to this URL")
 
 
 class TransitionRequest(BaseModel):
     to_block: str = Field(..., description="Target block key")
     label: str | None = None
     triggered_by: str = "user"
-    comment: str | None = Field(None, description="Human comment for this transition")
-    field_values: dict | None = Field(None, description="Field values to set during transition")
 
 
-class SetFieldsRequest(BaseModel):
+class SetFieldRequest(BaseModel):
     block_key: str
-    values: dict = Field(..., description="Batch field: {field_key: value, ...}")
-
-
-class AvailableTransition(BaseModel):
-    to_block: str
-    label: str | None
-    condition: str | None  # future: expression evaluation
-    source_port: str = "output"
-    target_port: str = "input"
+    field_key: str
+    value: str | int | float | bool | None
 
 
 class ProcessInstanceResponse(BaseModel):
     id: uuid.UUID
     state: str
-    process_name: str | None = None
     current_block_key: str | None
-    current_block_label: str | None
     field_values: dict
     execution_log: list
-    available_transitions: list[AvailableTransition] | None = None
-    process_definition: dict | None = None
-    service_instance_id: uuid.UUID | None = None
-    started_by: str | None = None
     started_at: datetime
     completed_at: datetime | None
-    context: dict | None = None
-
-
-# ── Helpers ──────────────────────────────────────────────────────────
-
-def _resolve_user(current_user: any, service: dict | None) -> any:
-    """Resolve auth context from either user token or M2M service token."""
-    from types import SimpleNamespace
-
-    if current_user is not None:
-        return current_user
-
-    if service is not None:
-        tid = service.get("tenant_id")
-        if isinstance(tid, str):
-            tid = uuid.UUID(tid)
-        return SimpleNamespace(
-            email=service.get("service", "system"),
-            tenant_id=tid,
-            id=service.get("service", "system"),
-        )
-
-    raise HTTPException(status_code=401, detail="Authentication required")
-
-
-async def _emit_process_event(instance: ProcessInstance, event_type: str, extra: dict | None = None):
-    """Emit a process event to the tenant's WebSocket channel."""
-    try:
-        definition = instance.process_definition or {}
-        process_name = definition.get("name") or definition.get("slug", "Process")
-        data = {
-            "instance_id": str(instance.id),
-            "process_name": process_name,
-            "state": instance.state,
-            "current_block_key": instance.current_block_key,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        }
-        if extra:
-            data.update(extra)
-
-        await ws_manager.broadcast_to_tenant(
-            str(instance.tenant_id),
-            "processes",
-            {"type": event_type, "data": data}
-        )
-    except Exception as e:
-        logger = logging.getLogger("aether.processes")
-        logger.warning("Failed to emit WS event %s: %s", event_type, e)
-
-def _get_block_by_key(definition: dict, key: str) -> dict | None:
-    blocks = definition.get("blocks", [])
-    for b in blocks:
-        if b["key"] == key:
-            return b
-    return None
-
-
-def _get_available_transitions(definition: dict, current_block_key: str) -> list[dict]:
-    """Compute available transitions from the current block."""
-    connections = definition.get("connections", [])
-    transitions: list[dict] = []
-    for c in connections:
-        source = c.get("source") or c.get("source_block_key", "")
-        if source == current_block_key:
-            target_key = c.get("target") or c.get("target_block_key", "")
-            target_block = _get_block_by_key(definition, target_key)
-            transitions.append({
-                "to_block": target_key,
-                "label": c.get("label", "") or target_block.get("label", "") if target_block else "",
-                "condition": c.get("condition", None),
-                "source_port": c.get("source_port", "output"),
-                "target_port": c.get("target_port", "input"),
-            })
-    return transitions
-
-
-def _instance_to_response(instance: ProcessInstance, include_full: bool = False) -> ProcessInstanceResponse:
-    """Convert ProcessInstance to API response."""
-    definition = instance.process_definition or {}
-    current_block = _get_block_by_key(definition, instance.current_block_key) if instance.current_block_key else None
-    process_name = definition.get("name") or definition.get("slug", "Process")
-
-    return ProcessInstanceResponse(
-        id=instance.id,
-        state=instance.state,
-        process_name=process_name,
-        current_block_key=instance.current_block_key,
-        current_block_label=current_block.get("label") if current_block else None,
-        field_values=instance.field_values if isinstance(instance.field_values, dict) else {},
-        execution_log=instance.execution_log if isinstance(instance.execution_log, list) else [],
-        available_transitions=_get_available_transitions(definition, instance.current_block_key)
-            if instance.state == "active" else None,
-        process_definition=definition if include_full else None,
-        service_instance_id=instance.service_instance_id,
-        started_by=instance.started_by,
-        started_at=instance.started_at,
-        completed_at=instance.completed_at,
-        context=instance.context if isinstance(instance.context, dict) else None,
-    )
 
 
 # ── Endpoints ────────────────────────────────────────────────────────
+
 
 @router.post("/start", response_model=ProcessInstanceResponse, status_code=201)
 async def start_process(
     body: StartProcessRequest,
     db: DBDep,
-    current_user: CurrentActiveUser = None,
-    service: CurrentService = None,
+    current_user: CurrentActiveUser,
 ) -> ProcessInstanceResponse:
-    """Start a new process instance."""
-    auth = _resolve_user(current_user, service)
-    tenant_id = auth.tenant_id
-    if not tenant_id:
-        raise HTTPException(status_code=400, detail="tenant_id required in request body for M2M")
+    """Start a new process instance for the current tenant."""
+    tenant_id = current_user.tenant_id
 
-    # Validate definition has blocks
+    # Find the first block (start)
     blocks = body.process_definition.get("blocks", [])
-    if not blocks:
-        raise HTTPException(status_code=422, detail="Process definition has no blocks")
-
-    # Find entry block: prefer 'start' type, fallback to first block
-    start_block = next((b for b in blocks if b.get("block_type") == "start"), None)
+    start_block = next(
+        (b for b in blocks if b.get("block_type") == "start"), blocks[0] if blocks else None
+    )
     if not start_block:
-        start_block = blocks[0]
-
-    # Build context
-    ctx = dict(body.context or {})
-    ctx["source"] = ctx.get("source", "api")
-    if body.webhook_url:
-        ctx["webhook_url"] = body.webhook_url
-
-    # Merge initial field values
-    field_values = dict(body.initial_field_values or {})
+        raise HTTPException(status_code=422, detail="Process definition has no blocks")
 
     instance = ProcessInstance(
         tenant_id=tenant_id,
@@ -218,25 +80,29 @@ async def start_process(
         process_definition=body.process_definition,
         current_block_key=start_block["key"],
         state="active",
-        started_by=body.started_by or auth.email,
-        field_values=field_values,
-        context=ctx,
-        source_system="vela",
-        execution_log=[{
-            "block_key": start_block["key"],
-            "action": "enter",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "user": body.started_by or auth.email,
-        }],
+        started_by=body.started_by or current_user.email,
+        execution_log=[
+            {
+                "block_key": start_block["key"],
+                "action": "enter",
+                "timestamp": datetime.now(UTC).isoformat(),
+                "user": body.started_by or current_user.email,
+            }
+        ],
     )
     db.add(instance)
     await db.commit()
     await db.refresh(instance)
 
-    # Emit WebSocket event
-    await _emit_process_event(instance, "process.started")
-
-    return _instance_to_response(instance, include_full=True)
+    return ProcessInstanceResponse(
+        id=instance.id,
+        state=instance.state,
+        current_block_key=instance.current_block_key,
+        field_values=instance.field_values,
+        execution_log=instance.execution_log,
+        started_at=instance.started_at,
+        completed_at=instance.completed_at,
+    )
 
 
 @router.post("/{instance_id}/transition", response_model=ProcessInstanceResponse)
@@ -244,41 +110,34 @@ async def transition_process(
     instance_id: uuid.UUID,
     body: TransitionRequest,
     db: DBDep,
-    current_user: CurrentActiveUser = None,
-    service: CurrentService = None,
+    current_user: CurrentActiveUser,
 ) -> ProcessInstanceResponse:
-    """Move the process to the next block with optional field values and comment."""
-    auth = _resolve_user(current_user, service)
+    """Move the process to the next block."""
     instance = await db.get(ProcessInstance, instance_id)
-    if not instance or instance.tenant_id != auth.tenant_id:
+    if not instance or instance.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=404, detail="Process instance not found")
     if instance.state != "active":
         raise HTTPException(status_code=409, detail=f"Process is {instance.state}")
 
     # Validate target block exists in definition
-    target_block = _get_block_by_key(instance.process_definition, body.to_block)
+    blocks = instance.process_definition.get("blocks", [])
+    target_block = next((b for b in blocks if b["key"] == body.to_block), None)
     if not target_block:
-        raise HTTPException(status_code=422, detail=f"Block '{body.to_block}' not found in process")
+        raise HTTPException(
+            status_code=422, detail=f"Block '{body.to_block}' not found in process"
+        )
 
     # Validate connection exists
+    connections = instance.process_definition.get("connections", [])
     valid = any(
-        t["to_block"] == body.to_block
-        for t in _get_available_transitions(instance.process_definition, instance.current_block_key)
+        c.get("source") == instance.current_block_key and c.get("target") == body.to_block
+        for c in connections
     )
     if not valid:
         raise HTTPException(
             status_code=422,
             detail=f"No connection from '{instance.current_block_key}' to '{body.to_block}'",
         )
-
-    # Apply field_values passed with transition
-    if body.field_values:
-        all_values = dict(instance.field_values or {})
-        for bk, fields in body.field_values.items():
-            if bk not in all_values:
-                all_values[bk] = {}
-            all_values[bk].update(fields)
-        instance.field_values = all_values
 
     # Record transition
     transition = ProcessTransition(
@@ -287,7 +146,6 @@ async def transition_process(
         to_block=body.to_block,
         transition_label=body.label,
         triggered_by=body.triggered_by,
-        comment=body.comment,
     )
     db.add(transition)
 
@@ -298,15 +156,13 @@ async def transition_process(
     # Check if target is end block
     if target_block.get("block_type") == "end":
         instance.state = "completed"
-        instance.completed_at = datetime.now(timezone.utc)
+        instance.completed_at = datetime.now(UTC)
 
     # Log
     log_entry = {
         "block_key": body.to_block,
-        "action": "transition",
-        "from": old_block,
-        "label": body.label,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "action": "enter",
+        "timestamp": datetime.now(UTC).isoformat(),
         "user": body.triggered_by,
     }
     instance.execution_log = (instance.execution_log or []) + [log_entry]
@@ -314,30 +170,27 @@ async def transition_process(
     await db.commit()
     await db.refresh(instance)
 
-    # Emit WebSocket event
-    await _emit_process_event(instance, "process.transitioned", {
-        "from_block": old_block,
-        "to_block": body.to_block,
-        "label": body.label,
-        "triggered_by": body.triggered_by,
-        "comment": body.comment,
-    })
-
-    return _instance_to_response(instance, include_full=True)
+    return ProcessInstanceResponse(
+        id=instance.id,
+        state=instance.state,
+        current_block_key=instance.current_block_key,
+        field_values=instance.field_values,
+        execution_log=instance.execution_log,
+        started_at=instance.started_at,
+        completed_at=instance.completed_at,
+    )
 
 
 @router.post("/{instance_id}/field", response_model=ProcessInstanceResponse)
-async def set_process_fields(
+async def set_process_field(
     instance_id: uuid.UUID,
-    body: SetFieldsRequest,
+    body: SetFieldRequest,
     db: DBDep,
-    current_user: CurrentActiveUser = None,
-    service: CurrentService = None,
+    current_user: CurrentActiveUser,
 ) -> ProcessInstanceResponse:
-    """Set field values for a block (batch update)."""
-    auth = _resolve_user(current_user, service)
+    """Set a field value for the current block."""
     instance = await db.get(ProcessInstance, instance_id)
-    if not instance or instance.tenant_id != auth.tenant_id:
+    if not instance or instance.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=404, detail="Process instance not found")
     if instance.state != "active":
         raise HTTPException(status_code=409, detail=f"Process is {instance.state}")
@@ -345,182 +198,104 @@ async def set_process_fields(
     field_values = dict(instance.field_values or {})
     block_values = dict(field_values.get(body.block_key, {}))
 
-    # Track deltas for audit
-    deltas = {}
-    for fk, fv in body.values.items():
-        old = block_values.get(fk)
-        deltas[fk] = {"old": old, "new": fv}
-        block_values[fk] = fv
-
+    # Track delta for audit
+    old_value = block_values.get(body.field_key)
+    block_values[body.field_key] = body.value
     field_values[body.block_key] = block_values
     instance.field_values = field_values
 
-    # Log the changes
-    for fk, fv in body.values.items():
-        log_entry = {
-            "block_key": body.block_key,
-            "action": "set_field",
-            "field": fk,
-            "value": fv,
-            "previous": deltas[fk]["old"],
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "user": auth.email,
-        }
-        instance.execution_log = (instance.execution_log or []) + [log_entry]
+    # Log the change
+    log_entry = {
+        "block_key": body.block_key,
+        "action": "set_field",
+        "field": body.field_key,
+        "value": body.value,
+        "previous": old_value,
+        "timestamp": datetime.now(UTC).isoformat(),
+        "user": current_user.email,
+    }
+    instance.execution_log = (instance.execution_log or []) + [log_entry]
 
     await db.commit()
     await db.refresh(instance)
 
-    # Emit WebSocket event
-    await _emit_process_event(instance, "process.field_updated", {
-        "block_key": body.block_key,
-        "fields": body.values,
-    })
-
-    return _instance_to_response(instance, include_full=True)
+    return ProcessInstanceResponse(
+        id=instance.id,
+        state=instance.state,
+        current_block_key=instance.current_block_key,
+        field_values=instance.field_values,
+        execution_log=instance.execution_log,
+        started_at=instance.started_at,
+        completed_at=instance.completed_at,
+    )
 
 
 @router.get("/{instance_id}", response_model=ProcessInstanceResponse)
 async def get_process_instance(
     instance_id: uuid.UUID,
     db: DBDep,
-    current_user: CurrentActiveUser = None,
-    service: CurrentService = None,
-    include_definition: bool = Query(False),
+    current_user: CurrentActiveUser,
 ) -> ProcessInstanceResponse:
-    """Get current state of a process instance, including available transitions."""
-    auth = _resolve_user(current_user, service)
+    """Get current state of a process instance."""
     instance = await db.get(ProcessInstance, instance_id)
-    if not instance or instance.tenant_id != auth.tenant_id:
+    if not instance or instance.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=404, detail="Process instance not found")
 
-    return _instance_to_response(instance, include_full=include_definition)
+    return ProcessInstanceResponse(
+        id=instance.id,
+        state=instance.state,
+        current_block_key=instance.current_block_key,
+        field_values=instance.field_values,
+        execution_log=instance.execution_log,
+        started_at=instance.started_at,
+        completed_at=instance.completed_at,
+    )
 
 
 @router.get("/", response_model=list[ProcessInstanceResponse])
 async def list_process_instances(
     db: DBDep,
-    current_user: CurrentActiveUser = None,
-    service: CurrentService = None,
+    current_user: CurrentActiveUser,
     state_filter: str | None = Query(None, alias="state"),
-    service_instance_id: uuid.UUID | None = Query(None),
     limit: int = Query(20, le=100),
-    offset: int = Query(0, ge=0),
 ) -> list[ProcessInstanceResponse]:
     """List process instances for current tenant."""
-    auth = _resolve_user(current_user, service)
-    stmt = select(ProcessInstance).where(
-        ProcessInstance.tenant_id == auth.tenant_id
-    )
+    stmt = select(ProcessInstance).where(ProcessInstance.tenant_id == current_user.tenant_id)
     if state_filter:
         stmt = stmt.where(ProcessInstance.state == state_filter)
-    if service_instance_id:
-        stmt = stmt.where(ProcessInstance.service_instance_id == service_instance_id)
-    stmt = stmt.order_by(desc(ProcessInstance.started_at)).offset(offset).limit(limit)
+    stmt = stmt.order_by(desc(ProcessInstance.started_at)).limit(limit)
 
     result = await db.execute(stmt)
     instances = result.scalars().all()
 
-    return [_instance_to_response(i) for i in instances]
-
-
-@router.post("/{instance_id}/pause", response_model=ProcessInstanceResponse)
-async def pause_process(
-    instance_id: uuid.UUID,
-    db: DBDep,
-    current_user: CurrentActiveUser = None,
-    service: CurrentService = None,
-) -> ProcessInstanceResponse:
-    """Pause a running process."""
-    auth = _resolve_user(current_user, service)
-    instance = await db.get(ProcessInstance, instance_id)
-    if not instance or instance.tenant_id != auth.tenant_id:
-        raise HTTPException(status_code=404, detail="Process instance not found")
-    if instance.state != "active":
-        raise HTTPException(status_code=409, detail=f"Cannot pause: process is {instance.state}")
-
-    instance.state = "paused"
-    instance.execution_log = (instance.execution_log or []) + [{
-        "action": "pause",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "user": auth.email,
-    }]
-    await db.commit()
-    await db.refresh(instance)
-
-    await _emit_process_event(instance, "process.paused")
-    return _instance_to_response(instance)
-
-
-@router.post("/{instance_id}/resume", response_model=ProcessInstanceResponse)
-async def resume_process(
-    instance_id: uuid.UUID,
-    db: DBDep,
-    current_user: CurrentActiveUser = None,
-    service: CurrentService = None,
-) -> ProcessInstanceResponse:
-    """Resume a paused process."""
-    auth = _resolve_user(current_user, service)
-    instance = await db.get(ProcessInstance, instance_id)
-    if not instance or instance.tenant_id != auth.tenant_id:
-        raise HTTPException(status_code=404, detail="Process instance not found")
-    if instance.state != "paused":
-        raise HTTPException(status_code=409, detail=f"Cannot resume: process is {instance.state}")
-
-    instance.state = "active"
-    instance.execution_log = (instance.execution_log or []) + [{
-        "action": "resume",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "user": auth.email,
-    }]
-    await db.commit()
-    await db.refresh(instance)
-
-    await _emit_process_event(instance, "process.resumed")
-    return _instance_to_response(instance)
-
-
-@router.post("/{instance_id}/cancel", response_model=ProcessInstanceResponse)
-async def cancel_process(
-    instance_id: uuid.UUID,
-    db: DBDep,
-    current_user: CurrentActiveUser = None,
-    service: CurrentService = None,
-) -> ProcessInstanceResponse:
-    """Cancel a running or paused process."""
-    auth = _resolve_user(current_user, service)
-    instance = await db.get(ProcessInstance, instance_id)
-    if not instance or instance.tenant_id != auth.tenant_id:
-        raise HTTPException(status_code=404, detail="Process instance not found")
-    if instance.state not in ("active", "paused"):
-        raise HTTPException(status_code=409, detail=f"Cannot cancel: process is {instance.state}")
-
-    instance.state = "cancelled"
-    instance.completed_at = datetime.now(timezone.utc)
-    instance.execution_log = (instance.execution_log or []) + [{
-        "action": "cancel",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "user": auth.email,
-    }]
-    await db.commit()
-    await db.refresh(instance)
-
-    await _emit_process_event(instance, "process.cancelled")
-    return _instance_to_response(instance)
+    return [
+        ProcessInstanceResponse(
+            id=i.id,
+            state=i.state,
+            current_block_key=i.current_block_key,
+            field_values=i.field_values,
+            execution_log=i.execution_log,
+            started_at=i.started_at,
+            completed_at=i.completed_at,
+        )
+        for i in instances
+    ]
 
 
 @router.post("/{instance_id}/generate-document")
 async def generate_document(
     instance_id: uuid.UUID,
     db: DBDep,
-    current_user: CurrentActiveUser = None,
-    service: CurrentService = None,
+    current_user: CurrentActiveUser,
     block_key: str | None = Query(None),
 ) -> dict:
-    """Generate a document for a process block."""
-    auth = _resolve_user(current_user, service)
+    """Generate a document for a process block. Fills placeholders with field values.
+
+    For blocks of type 'document' with config.start_actions containing generate_docx,
+    this endpoint renders the template with field_values from the process instance.
+    """
     instance = await db.get(ProcessInstance, instance_id)
-    if not instance or instance.tenant_id != auth.tenant_id:
+    if not instance or instance.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=404, detail="Process instance not found")
 
     # Find document blocks
@@ -554,19 +329,21 @@ async def generate_document(
                     if fk not in filled:
                         filled[fk] = fv
 
-            generated.append({
-                "block_key": block["key"],
-                "template": template_name,
-                "placeholders": filled,
-                "status": "pending",
-            })
+            generated.append(
+                {
+                    "block_key": block["key"],
+                    "template": template_name,
+                    "placeholders": filled,
+                    "status": "pending",  # Real rendering would happen async
+                }
+            )
 
     # Log
     log_entry = {
         "action": "generate_doc",
         "blocks": list(set(g["block_key"] for g in generated)),
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "user": auth.email,
+        "timestamp": datetime.now(UTC).isoformat(),
+        "user": current_user.email,
     }
     instance.execution_log = (instance.execution_log or []) + [log_entry]
     await db.commit()

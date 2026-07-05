@@ -16,7 +16,7 @@ from sqlalchemy import text
 from sqlalchemy.dialects.sqlite.base import SQLiteTypeCompiler
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-TEST_DB_URI = "sqlite+aiosqlite:///file:aether_test.db?mode=memory&cache=shared"
+TEST_DB_URI = "sqlite+aiosqlite:///./test_db.sqlite3"
 
 # Force test env BEFORE any app module import
 for k, v in {
@@ -37,35 +37,14 @@ def __b64decode(s: bytes | str) -> str:
         s = s.encode()
     return _b64.b64decode(s).decode()
 
-TEST_USER_PASSWORD = __b64decode(b"UEBzc3cwcmQhMjAyNA==")
-TEST_ADMIN_PASSWORD = __b64decode(b"QWRtaW4xMjMh")
-
-
-def _patch_sqlite_types():
-    from sqlalchemy import JSON, LargeBinary
-    from sqlalchemy.dialects.postgresql import JSONB, BYTEA, ARRAY
-    from sqlalchemy.dialects.sqlite.base import SQLiteTypeCompiler
-
-    orig = SQLiteTypeCompiler.process
-
-    def patched(self, type_, **kw):
-        if isinstance(type_, JSONB):
-            return self.visit_JSON(JSON())
-        if isinstance(type_, ARRAY):
-            return self.visit_JSON(JSON())
-        if isinstance(type_, BYTEA):
-            return self.visit_BINARY(LargeBinary())
-        return orig(self, type_, **kw)
-
-    SQLiteTypeCompiler.process = patched
-    return orig
+TEST_USER_PASSWORD = "UEBzc3cwcmQhMjAyNA=="
+TEST_ADMIN_PASSWORD = "QWRtaW4xMjMh"
 
 
 # ── Session-scoped: create test engine + create_all once ──
 
 @pytest_asyncio.fixture(scope="session")
 async def test_engine():
-    orig = _patch_sqlite_types()
     engine = create_async_engine(
         TEST_DB_URI,
         echo=False,
@@ -78,7 +57,6 @@ async def test_engine():
 
     yield engine
 
-    SQLiteTypeCompiler.process = orig
     await engine.dispose()
 
 

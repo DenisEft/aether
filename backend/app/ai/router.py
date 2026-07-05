@@ -138,6 +138,10 @@ class InferencePool:
             tasks.append(self._check_one(key, entry))
         await asyncio.gather(*tasks, return_exceptions=True)
 
+    def get_all_drivers(self) -> list:
+        """Return all registered driver instances."""
+        return [entry.driver for entry in self._drivers.values()]
+
     async def _check_one(self, key: str, entry: DriverEntry):
         try:
             health = await entry.driver.health_check()

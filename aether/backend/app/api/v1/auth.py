@@ -18,6 +18,7 @@ from webauthn import (
 )
 from webauthn.helpers import bytes_to_base64url
 
+# M2M imports
 from app.config import settings
 from app.core.deps import CurrentActiveUser, DBDep
 from app.core.rate_limit import limiter
@@ -39,14 +40,12 @@ from app.models.auth import (
     Invite,
     MagicLink,
     MFAConfig,
-    OAuthState,
     Passkey,
     RefreshToken,
     Session,
 )
 from app.models.tenants import Tenant
 from app.models.users import User
-from app.services.tenant_provisioning import TenantProvisioningService
 from app.schemas.auth import (
     ApiKeyCreateRequest,
     ApiKeyCreateResponse,
@@ -70,6 +69,7 @@ from app.schemas.auth import (
     TokenResponse,
     UserResponse,
 )
+from app.services.tenant_provisioning import TenantProvisioningService
 
 logger = logging.getLogger(__name__)
 
@@ -789,6 +789,7 @@ async def accept_invite(
     if user is None:
         # Create user without password (they'll set it later or use magic link)
         import uuid as _uuid
+
         user = User(
             id=_uuid.uuid4(),
             tenant_id=invite.tenant_id,

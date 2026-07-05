@@ -158,26 +158,6 @@ class WebSocketManager:
             logger.error("Failed to send personal message to %s: %s", connection_id, e, exc_info=True)
             return False
 
-    async def broadcast_to_tenant(self, tenant_id: str, channel: str, message: dict) -> int:
-        """Broadcast a message to all connections for a tenant's channel.
-
-        Channel naming convention: tenant:{tenant_id}:{channel}
-
-        Returns count of sent messages.
-        """
-        total_sent = 0
-        tenant_key = f"tenant:{tenant_id}"
-
-        for channel_type, channel_data in self.connections.items():
-            if channel_type == tenant_key:
-                for channel_id, connections in channel_data.items():
-                    if channel_id == channel:
-                        sent = await self.broadcast(channel_type, channel_id, message)
-                        total_sent += sent
-
-        logger.debug("Broadcast to tenant %s/%s: %d connections", tenant_id, channel, total_sent)
-        return total_sent
-
     async def get_active_connections(self, channel_type: str, channel_id: str) -> int:
         """Get count of active connections in a channel."""
         connections = self.connections.get(channel_type, {}).get(channel_id, {})
@@ -241,7 +221,3 @@ class WebSocketManager:
         except Exception as e:
             logger.error("Failed to send read receipt: %s", e, exc_info=True)
             return 0
-
-
-# Global singleton — instantiated once, used by ws.py and processes.py
-ws_manager = WebSocketManager()

@@ -7,7 +7,7 @@ import uuid
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import select
 
-from app.core.deps import DBDep, CurrentService
+from app.core.deps import DBDep, CurrentActiveUser, CurrentSuperuser
 from app.models.services import (
     ServiceBinding,
     ServiceDefinition,
@@ -39,7 +39,7 @@ router = APIRouter(tags=["services"])
 @router.get("/services/definitions", response_model=list[ServiceDefinitionResponse])
 async def list_service_definitions(
     db: DBDep,
-    service: CurrentService,
+    current_user: CurrentActiveUser,
     is_active: bool | None = Query(None),
 ) -> list[ServiceDefinitionResponse]:
     """List available service definitions."""
@@ -55,7 +55,7 @@ async def list_service_definitions(
 async def create_service_definition(
     body: ServiceDefinitionCreate,
     db: DBDep,
-    service: CurrentService,
+    current_user: CurrentSuperuser,
 ) -> ServiceDefinitionResponse:
     """Register a new service definition (superuser only)."""
     svc = ServiceDefinition(
@@ -78,7 +78,7 @@ async def create_service_definition(
 async def get_service_definition(
     definition_id: uuid.UUID,
     db: DBDep,
-    service: CurrentService,
+    current_user: CurrentActiveUser,
 ) -> ServiceDefinitionResponse:
     """Get service definition details."""
     result = await db.execute(
@@ -95,7 +95,7 @@ async def update_service_definition(
     definition_id: uuid.UUID,
     body: ServiceDefinitionUpdate,
     db: DBDep,
-    service: CurrentService,
+    current_user: CurrentSuperuser,
 ) -> ServiceDefinitionResponse:
     """Update a service definition (superuser only)."""
     result = await db.execute(
@@ -129,7 +129,7 @@ async def update_service_definition(
 async def delete_service_definition(
     definition_id: uuid.UUID,
     db: DBDep,
-    service: CurrentService,
+    current_user: CurrentSuperuser,
 ) -> dict:
     """Delete a service definition (superuser only)."""
     result = await db.execute(
@@ -151,7 +151,7 @@ async def delete_service_definition(
 @router.get("/services/instances", response_model=list[ServiceInstanceResponse])
 async def list_service_instances(
     db: DBDep,
-    service: CurrentService,
+    current_user: CurrentActiveUser,
 ) -> list[ServiceInstanceResponse]:
     """List service instances for the current tenant."""
     result = await db.execute(
@@ -166,7 +166,7 @@ async def list_service_instances(
 async def create_service_instance(
     body: ServiceInstanceCreate,
     db: DBDep,
-    service: CurrentService,
+    current_user: CurrentActiveUser,
 ) -> ServiceInstanceResponse:
     """Install a service instance for the current tenant."""
     instance = ServiceInstance(
@@ -185,7 +185,7 @@ async def create_service_instance(
 async def get_service_instance(
     instance_id: uuid.UUID,
     db: DBDep,
-    service: CurrentService,
+    current_user: CurrentActiveUser,
 ) -> ServiceInstanceResponse:
     """Get service instance details."""
     result = await db.execute(
@@ -205,7 +205,7 @@ async def update_service_instance(
     instance_id: uuid.UUID,
     body: ServiceInstanceUpdate,
     db: DBDep,
-    service: CurrentService,
+    current_user: CurrentActiveUser,
 ) -> ServiceInstanceResponse:
     """Update a service instance."""
     result = await db.execute(
@@ -232,7 +232,7 @@ async def update_service_instance(
 async def delete_service_instance(
     instance_id: uuid.UUID,
     db: DBDep,
-    service: CurrentService,
+    current_user: CurrentActiveUser,
 ) -> dict:
     """Uninstall a service instance."""
     result = await db.execute(
@@ -257,7 +257,7 @@ async def delete_service_instance(
 @router.get("/services/bindings", response_model=list[ServiceBindingResponse])
 async def list_service_bindings(
     db: DBDep,
-    service: CurrentService,
+    current_user: CurrentActiveUser,
 ) -> list[ServiceBindingResponse]:
     """List service bindings for the current tenant."""
     result = await db.execute(
@@ -272,7 +272,7 @@ async def list_service_bindings(
 async def create_service_binding(
     body: ServiceBindingCreate,
     db: DBDep,
-    service: CurrentService,
+    current_user: CurrentActiveUser,
 ) -> ServiceBindingResponse:
     """Create a binding between a service instance and a channel."""
     binding = ServiceBinding(
@@ -291,7 +291,7 @@ async def create_service_binding(
 async def get_service_binding(
     binding_id: uuid.UUID,
     db: DBDep,
-    service: CurrentService,
+    current_user: CurrentActiveUser,
 ) -> ServiceBindingResponse:
     """Get service binding details."""
     result = await db.execute(
@@ -311,7 +311,7 @@ async def update_service_binding(
     binding_id: uuid.UUID,
     body: ServiceBindingUpdate,
     db: DBDep,
-    service: CurrentService,
+    current_user: CurrentActiveUser,
 ) -> ServiceBindingResponse:
     """Update a service binding."""
     result = await db.execute(
@@ -338,7 +338,7 @@ async def update_service_binding(
 async def delete_service_binding(
     binding_id: uuid.UUID,
     db: DBDep,
-    service: CurrentService,
+    current_user: CurrentActiveUser,
 ) -> dict:
     """Delete a service binding."""
     result = await db.execute(
@@ -363,7 +363,7 @@ async def delete_service_binding(
 @router.get("/services/executions", response_model=list[ServiceExecutionResponse])
 async def list_service_executions(
     db: DBDep,
-    service: CurrentService,
+    current_user: CurrentActiveUser,
     conversation_id: uuid.UUID | None = Query(None),
     instance_id: uuid.UUID | None = Query(None),
     limit: int = Query(default=100, le=1000),
@@ -386,7 +386,7 @@ async def list_service_executions(
 async def create_service_execution(
     body: ServiceExecutionCreate,
     db: DBDep,
-    service: CurrentService,
+    current_user: CurrentActiveUser,
 ) -> ServiceExecutionResponse:
     """Record a service execution."""
     execution = ServiceExecution(
@@ -406,7 +406,7 @@ async def create_service_execution(
 async def get_service_execution(
     execution_id: uuid.UUID,
     db: DBDep,
-    service: CurrentService,
+    current_user: CurrentActiveUser,
 ) -> ServiceExecutionResponse:
     """Get service execution details."""
     result = await db.execute(
@@ -426,7 +426,7 @@ async def update_service_execution(
     execution_id: uuid.UUID,
     body: ServiceExecutionUpdate,
     db: DBDep,
-    service: CurrentService,
+    current_user: CurrentActiveUser,
 ) -> ServiceExecutionResponse:
     """Update a service execution (e.g. mark result, add metrics)."""
     result = await db.execute(

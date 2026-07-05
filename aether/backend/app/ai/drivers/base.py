@@ -110,7 +110,7 @@ class DriverMetrics:
     cost_usd: float = 0.0
     last_used_at: float | None = None
     success_rate: float = 1.0
-
+    
     @property
     def success_rate(self) -> float:
         if self.total_requests == 0:

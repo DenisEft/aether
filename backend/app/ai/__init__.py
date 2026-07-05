@@ -49,7 +49,7 @@ class InferenceRequest:
     max_tokens: int | None = None
     stop_sequences: list[str] | None = None
     stream: bool = False
-    timeout_seconds: int = 120
+    system_prompt: str | None = None
     priority: int = 0
     metadata: dict = field(default_factory=dict)
 

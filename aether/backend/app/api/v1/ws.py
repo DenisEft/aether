@@ -1,17 +1,14 @@
-"""WebSocket handler for WebWidget channel and Process Runtime.
+"""WebSocket handler for WebWidget channel.
 
 Protocol: Aether WebSocket Protocol v1 (docs/specs/websocket-protocol.md).
 
-Endpoints:
-  /ws/widget/{tenant_id}?token={jwt_token}     — WebWidget chat
-  /ws/processes/{tenant_id}?token={jwt_token}   — Process Runtime real-time
+Endpoint:  /ws/widget/{tenant_id}?token={jwt_token}
 
 Message flow:
   - Client connects → JWT validation → system.connected
   - Ping/pong heartbeat (30s interval, max 3 missed)
   - Messages JSON-encoded with type field
   - Typing indicators, message delivery, quick replies
-  - Process events: started, transitioned, field_updated, completed, failed
 """
 
 from __future__ import annotations
@@ -28,7 +25,7 @@ from sqlalchemy import select
 
 from app.core.security import decode_token
 from app.database import async_session_factory
-from app.services.ws_manager import WebSocketManager, ws_manager
+from app.services.ws_manager import WebSocketManager
 
 logger = logging.getLogger("aether.ws")
 
@@ -38,6 +35,9 @@ router = APIRouter()
 
 HEARTBEAT_INTERVAL = 30
 MAX_MISSED_HEARTBEATS = 3
+
+# Global WebSocket manager instance
+ws_manager = WebSocketManager()
 
 
 # ── Helpers ──────────────────────────────────────────────────
@@ -621,123 +621,3 @@ async def _handle_subscription(websocket: WebSocket, conn_id: str, user_id: str,
             "status": "success"
         }
         await websocket.send_text(json.dumps(ack_msg, ensure_ascii=False))
-
-
-# ── Process Runtime WebSocket ────────────────────────────────
-
-# Use a dedicated router for process WebSocket to avoid route conflicts
-process_ws_router = APIRouter()
-
-
-@process_ws_router.websocket("/ws/processes/{tenant_id}")
-async def process_websocket(
-    websocket: WebSocket,
-    tenant_id: uuid.UUID,
-    token: str = Query(...),
-):
-    """WebSocket endpoint for Process Runtime real-time updates.
-
-    Channel: tenant:{tenant_id}:processes
-
-    Events (server → client):
-      - process.started
-      - process.transitioned
-      - process.field_updated
-      - process.completed
-      - process.failed
-      - process.paused
-      - process.resumed
-      - process.cancelled
-
-    Events (client → server):
-      - process.subscribe   (subscribe to a specific instance)
-      - process.unsubscribe (unsubscribe)
-    """
-    # Validate JWT
-    payload = await validate_token(token)
-    if payload is None:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Invalid or expired token")
-        return
-
-    token_tenant = payload.get("tenant_id")
-    if token_tenant and str(tenant_id) != str(token_tenant):
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Tenant mismatch")
-        return
-
-    user_id = payload.get("sub")
-    if not user_id:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Token missing subject")
-        return
-
-    conn_id = connection_id()
-    await websocket.accept()
-
-    # Register in tenant:processes channel
-    channel_type = f"tenant:{tenant_id}"
-    channel_id = "processes"
-
-    if not await ws_manager.register(conn_id, websocket, channel_type, channel_id, user_id, str(tenant_id)):
-        await websocket.close(code=status.WS_1011_INTERNAL_ERROR, reason="Failed to register")
-        return
-
-    try:
-        # Send connected event
-        connected_msg = {
-            "type": "system.connected",
-            "id": f"conn_{uuid.uuid4().hex[:8]}",
-            "timestamp": _ts(),
-            "tenant_id": str(tenant_id),
-            "user_id": user_id,
-            "channel": "processes",
-        }
-        await websocket.send_text(json.dumps(connected_msg, ensure_ascii=False))
-
-        # Main loop
-        heartbeat_task = asyncio.create_task(_heartbeat_loop(websocket, conn_id))
-        heartbeat_missed = 0
-
-        while True:
-            try:
-                raw = await asyncio.wait_for(websocket.receive_text(), timeout=1.0)
-            except asyncio.TimeoutError:
-                heartbeat_missed += 1
-                if heartbeat_missed > MAX_MISSED_HEARTBEATS:
-                    await websocket.close(code=4001, reason="Heartbeat timeout")
-                    break
-                try:
-                    await websocket.send_text(json.dumps({"type": "ping"}))
-                except Exception:
-                    break
-                continue
-
-            heartbeat_missed = 0
-
-            try:
-                msg = json.loads(raw)
-            except json.JSONDecodeError:
-                continue
-
-            msg_type = msg.get("type", "")
-
-            if msg_type == "pong":
-                pass
-            elif msg_type == "process.subscribe":
-                # Could track per-instance subscriptions in future
-                ack = {"type": "process.subscription_ack", "status": "subscribed",
-                       "instance_id": msg.get("instance_id")}
-                await websocket.send_text(json.dumps(ack))
-            elif msg_type == "process.unsubscribe":
-                ack = {"type": "process.subscription_ack", "status": "unsubscribed"}
-                await websocket.send_text(json.dumps(ack))
-
-    except WebSocketDisconnect:
-        logger.info("Process WS disconnected: conn=%s", conn_id)
-    except Exception as e:
-        logger.warning("Process WS error: conn=%s: %s", conn_id, e)
-    finally:
-        heartbeat_task.cancel()
-        try:
-            await heartbeat_task
-        except asyncio.CancelledError:
-            pass
-        await ws_manager.unregister(conn_id)

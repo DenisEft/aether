@@ -1,62 +1,50 @@
-"""M2M (machine-to-machine) authentication endpoints."""
+"""M2M (machine-to-machine) authentication endpoints for Aether."""
 
 from __future__ import annotations
-
-from datetime import datetime, timedelta
-from typing import List
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
 from app.config import settings
-from app.core.security import create_access_token
+from app.core.deps import DBDep
+from app.core.m2m import generate_m2m_token, verify_m2m_token_middleware
 
-router = APIRouter(tags=["auth"])
+router = APIRouter(tags=["m2m"])
 
 
 class M2MTokenRequest(BaseModel):
-    """Request model for M2M token generation."""
+    """Request body for M2M token generation."""
+
     secret: str
-    scopes: List[str]
-    tenant_id: str | None = None
+    scopes: list[str] = []
 
 
 class M2MTokenResponse(BaseModel):
-    """Response model for M2M token generation."""
-    access_token: str
-    token_type: str
-    expires_in: int
+    """Response body for M2M token."""
+
+    token: str
 
 
-@router.post("/m2m/token", response_model=M2MTokenResponse)
-async def generate_m2m_token(request: M2MTokenRequest):
-    """Generate a JWT token for machine-to-machine authentication."""
-    # Validate the secret
-    if request.secret != settings.AETHER_M2M_SECRET:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid secret",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+@router.post("/auth/m2m/token", response_model=M2MTokenResponse)
+async def generate_m2m_token_endpoint(request: M2MTokenRequest, db: DBDep) -> M2MTokenResponse:
+    """Generate an M2M token for machine-to-machine authentication."""
+    # Verify secret
+    if request.secret != settings.M2M_SECRET:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid M2M secret")
 
-    # Create token payload
-    token_data = {
-        "sub": "service:vela",
-        "scopes": request.scopes,
-        "type": "m2m",
-    }
-    if request.tenant_id:
-        token_data["tenant_id"] = request.tenant_id
+    # Generate token with provided scopes
+    token = await generate_m2m_token(request.scopes)
 
-    # Set expiration time
-    expire_minutes = settings.AETHER_M2M_TOKEN_EXPIRE_MINUTES
-    expires_delta = timedelta(minutes=expire_minutes)
+    return M2MTokenResponse(token=token)
 
-    # Generate access token
-    access_token = create_access_token(token_data, expires_delta)
 
-    return M2MTokenResponse(
-        access_token=access_token,
-        token_type="bearer",
-        expires_in=expire_minutes * 60,
-    )
+@router.get("/auth/m2m/verify")
+async def verify_m2m_token_endpoint(token: str, db: DBDep) -> dict:
+    """Verify an M2M token."""
+    try:
+        payload = await verify_m2m_token_middleware(token)
+        return {"valid": True, "payload": payload}
+    except HTTPException as e:
+        if e.status_code == 401:
+            return {"valid": False, "error": "Invalid token"}
+        raise
