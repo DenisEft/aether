@@ -88,6 +88,12 @@ class Settings(BaseSettings):
         description="Celery result backend (defaults to REDIS_URL when empty)",
     )
 
+    # ── Channels / Webhooks ──────────────────────────────────
+    TELEGRAM_BOT_TOKEN: str = Field(
+        default="",
+        description="Telegram Bot API token for sending replies via webhook",
+    )
+
     # ── Environment ───────────────────────────────────────────
     ENVIRONMENT: str = Field(
         default="development",
