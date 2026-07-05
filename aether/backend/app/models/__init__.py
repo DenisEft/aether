@@ -30,6 +30,7 @@ from app.models.documents import (
     Template,
 )
 from app.models.audit import AuditLog, ApiCallLog
+from app.models.process_runtime import ProcessInstance, ProcessTransition
 
 __all__ = [
     "Base",
@@ -58,4 +59,5 @@ __all__ = [
     "ServiceDefinition", "ServiceInstance", "ServiceBinding", "ServiceExecution",
     "SubscriptionPlan", "Subscription", "Invoice", "UsageRecord", "PaymentMethod",
     "AuditLog", "ApiCallLog",
+    "ProcessInstance", "ProcessTransition",
 ]

@@ -51,6 +51,14 @@ class ProcessInstance(Base):
     execution_log = Column(JSONB, nullable=False, default=list)
     # [ { "block_key": "b1", "action": "enter", "timestamp": "...", "user": "..." }, ... ]
 
+    # Metadata context — passed from source system (Vela)
+    context = Column(JSONB, nullable=False, default=dict)
+    # { "purchase_id": "...", "source": "vela", "webhook_url": "..." }
+
+    # Source system tracking
+    source_system = Column(String(50), nullable=True, default="vela")
+    source_record_id = Column(String(255), nullable=True)  # e.g. purchase_id from Vela
+
 
 class ProcessTransition(Base):
     """A transition from one block to another during execution."""
@@ -68,3 +76,10 @@ class ProcessTransition(Base):
 
     # What field values were set/updated during this transition
     delta = Column(JSONB, nullable=True, default=dict)
+
+    # Human comment on this transition
+    comment = Column(Text, nullable=True)
+
+    # Field changes with old/new values for audit
+    field_changes = Column(JSONB, nullable=True, default=dict)
+    # { "b2": { "title": {"old": "...", "new": "..."}, ... } }
