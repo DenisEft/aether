@@ -32,6 +32,7 @@ class HealthStatus(str, Enum):
 @dataclass
 class DriverEntry:
     """Wrapper around a driver with routing metadata."""
+
     driver: BaseDriver
     priority: int = 0
     cost_per_1k_tokens: float = 0.0
@@ -108,7 +109,7 @@ class InferencePool:
         for key, entry in self._drivers.items():
             tasks.append(self._init_one(key, entry))
         results = await asyncio.gather(*tasks, return_exceptions=True)
-        for key, result in zip(self._drivers.keys(), results):
+        for key, result in zip(self._drivers.keys(), results, strict=False):
             if isinstance(result, Exception):
                 logger.error(f"Failed to init {key}: {result}")
 
@@ -167,9 +168,7 @@ class InferencePool:
         for key, entry in self._drivers.items():
             if exclude_unhealthy and not entry.is_healthy:
                 continue
-            if capability and capability not in [
-                c.value for c in entry.driver.capabilities()
-            ]:
+            if capability and capability not in [c.value for c in entry.driver.capabilities()]:
                 continue
             if entry.current_load >= 1.0:
                 continue  # At capacity
@@ -186,10 +185,12 @@ class InferencePool:
             return candidates[0]
 
         if strategy == RoutingStrategy.ROUND_ROBIN:
+
             async def _rr():
                 async with self._lock:
                     self._round_robin_idx = (self._round_robin_idx + 1) % len(candidates)
                     return candidates[self._round_robin_idx]
+
             # Simple non-async-safe version for now
             self._round_robin_idx = (self._round_robin_idx + 1) % len(candidates)
             return candidates[self._round_robin_idx]
@@ -204,11 +205,7 @@ class InferencePool:
 
         if strategy == RoutingStrategy.LEAST_LATENCY:
             candidates.sort(
-                key=lambda x: (
-                    x[1]._last_health.latency_ms
-                    if x[1]._last_health
-                    else 999999
-                )
+                key=lambda x: (x[1]._last_health.latency_ms if x[1]._last_health else 999999)
             )
             return candidates[0]
 
@@ -233,9 +230,7 @@ class InferencePool:
             entry.mark_request_start()
 
             try:
-                response = await asyncio.wait_for(
-                    entry.driver.infer(request), timeout=timeout
-                )
+                response = await asyncio.wait_for(entry.driver.infer(request), timeout=timeout)
                 entry.mark_request_done(success=True)
                 return response
             except TimeoutError:

@@ -89,14 +89,14 @@ async def widget_websocket(
 
     # Generate connection ID
     conn_id = connection_id()
-    
+
     # 2. Accept connection
     await websocket.accept()
 
     # 3. Register connection
     channel_type = "widget"
     session_id = payload.get("session_id", conn_id)
-    
+
     if not await ws_manager.register(conn_id, websocket, channel_type, str(tenant_id), user_id, str(tenant_id), session_id):
         await websocket.close(code=status.WS_1011_INTERNAL_ERROR, reason="Failed to register connection")
         return
@@ -126,7 +126,7 @@ async def widget_websocket(
                 }
             }
         }
-        
+
         await websocket.send_text(json.dumps(connected_msg, ensure_ascii=False))
 
         # 5. Main loop — receive messages + heartbeat
@@ -214,25 +214,25 @@ async def _handle_inbound(websocket: WebSocket, conn_id: str, user_id: str, tena
 
     msg_type = msg.get("type", "")
     seq = msg.get("seq", 0)
-    
+
     if msg_type == "pong":
         # Heartbeat ping response
         logger.debug("Received pong for connection %s", conn_id)
         # No action needed, heartbeat is handled by timeout logic
-        
+
     elif msg_type == "chat.message":
         await _handle_chat_message(websocket, conn_id, user_id, tenant_id, msg, seq)
-        
+
     elif msg_type == "chat.typing":
         await _handle_typing(websocket, conn_id, user_id, tenant_id, msg, seq)
-        
+
     elif msg_type == "chat.quick_reply":
         await _handle_quick_reply(websocket, conn_id, user_id, tenant_id, msg, seq)
-        
+
     elif msg_type == "chat.subscription":
         # Handle subscription (subscribe/unsubscribe)
         await _handle_subscription(websocket, conn_id, user_id, tenant_id, msg, seq)
-        
+
     else:
         # Unknown message type
         error_msg = {
@@ -251,7 +251,7 @@ async def _handle_chat_message(websocket: WebSocket, conn_id: str, user_id: str,
     conversation_id = msg.get("conversation_id")
     content = msg.get("content", "").strip()
     message_id = msg.get("id", str(uuid.uuid4()))
-    
+
     if not content:
         error_msg = {
             "type": "system.error",
@@ -267,7 +267,7 @@ async def _handle_chat_message(websocket: WebSocket, conn_id: str, user_id: str,
     # Get channel type from connection metadata
     metadata = ws_manager.connection_metadata.get(conn_id)
     channel_type = metadata.get("channel_type") if metadata else "widget"
-    
+
     # Persist message asynchronously
     async with async_session_factory() as db:
         try:
@@ -319,7 +319,7 @@ async def _handle_chat_message(websocket: WebSocket, conn_id: str, user_id: str,
             }
             await websocket.send_text(json.dumps(ack_msg, ensure_ascii=False))
 
-            # Route to AI for response generation 
+            # Route to AI for response generation
             await _generate_ai_response(websocket, conn_id, user_id, tenant_id, conversation_id, content, db_msg.id, seq + 1)
 
         except Exception as e:
@@ -352,7 +352,7 @@ async def _generate_ai_response(
         # Get channel type from connection metadata
         metadata = ws_manager.connection_metadata.get(conn_id)
         channel_type = metadata.get("channel_type") if metadata else "widget"
-        
+
         # Build conversation context (last N messages)
         messages: list[dict] = []
         async with async_session_factory() as db:
@@ -464,7 +464,7 @@ async def _generate_ai_response(
             "message": "Failed to generate AI response"
         }
         await ws_manager.broadcast(channel_type, conversation_id, error_msg)
-        
+
         # Send fallback message
         fallback_msg = {
             "type": "chat.message",
@@ -483,7 +483,7 @@ async def _handle_typing(websocket: WebSocket, conn_id: str, user_id: str, tenan
     """Handle typing indicator from client."""
     conversation_id = msg.get("conversation_id")
     status = msg.get("status", "started")
-    
+
     if not conversation_id:
         error_msg = {
             "type": "system.error",
@@ -499,7 +499,7 @@ async def _handle_typing(websocket: WebSocket, conn_id: str, user_id: str, tenan
     # Get channel type from connection metadata
     metadata = ws_manager.connection_metadata.get(conn_id)
     channel_type = metadata.get("channel_type") if metadata else "widget"
-    
+
     # Broadcast typing indicator to all connections in the conversation
     typing_msg = {
         "type": "chat.typing",
@@ -511,7 +511,7 @@ async def _handle_typing(websocket: WebSocket, conn_id: str, user_id: str, tenan
         "role": "human",
         "user_id": user_id
     }
-    
+
     await ws_manager.broadcast(channel_type, conversation_id, typing_msg)
 
 
@@ -519,7 +519,7 @@ async def _handle_quick_reply(websocket: WebSocket, conn_id: str, user_id: str, 
     """Handle quick reply button click from widget."""
     conversation_id = msg.get("conversation_id")
     payload = msg.get("payload", "")
-    
+
     if not conversation_id or not payload:
         error_msg = {
             "type": "system.error",
@@ -535,7 +535,7 @@ async def _handle_quick_reply(websocket: WebSocket, conn_id: str, user_id: str, 
     # Get channel type from connection metadata
     metadata = ws_manager.connection_metadata.get(conn_id)
     channel_type = metadata.get("channel_type") if metadata else "widget"
-    
+
     # Persist as a message with type=quick_reply
     async with async_session_factory() as db:
         try:
@@ -582,7 +582,7 @@ async def _handle_subscription(websocket: WebSocket, conn_id: str, user_id: str,
     action = msg.get("action")
     channel_type = msg.get("channel_type")
     channel_id = msg.get("channel_id")
-    
+
     if not action or not channel_type or not channel_id:
         error_msg = {
             "type": "system.error",
@@ -608,7 +608,7 @@ async def _handle_subscription(websocket: WebSocket, conn_id: str, user_id: str,
             "status": "success"
         }
         await websocket.send_text(json.dumps(ack_msg, ensure_ascii=False))
-    
+
     elif action == "unsubscribe":
         # For this implementation, we just acknowledge the unsubscription
         ack_msg = {

@@ -52,7 +52,7 @@ async def startup() -> None:
             await conn.execute(__import__("sqlalchemy").text("SELECT 1"))
     except Exception as exc:
         logging.warning("DB connection unavailable on startup: %s", exc)
-    
+
     # Initialize AI drivers from DB config
     if settings.AI_LOCAL_DRIVER_ENABLED:
         try:
@@ -72,7 +72,7 @@ async def startup() -> None:
             )
         except Exception as exc:
             logging.warning("Could not register local AI driver: %s", exc)
-    
+
     # Start background health checks
     try:
         await pool.start_health_checks()

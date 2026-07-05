@@ -105,7 +105,7 @@ class EmailChannel(BaseChannel):
                 result = await self._imap.search("UNSEEN")
                 if result.result == "OK" and result.lines:
                     msg_ids = result.lines[0].decode().split()
-                    
+
                     for msg_id in msg_ids:
                         ctx = await self._fetch_message(int(msg_id))
                         if ctx:

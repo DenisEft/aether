@@ -210,9 +210,7 @@ async def telegram_webhook(
     try:
         payload = await request.json()
     except Exception:
-        raise HTTPException(
-            status_code=400, detail="Invalid JSON"
-        ) from None
+        raise HTTPException(status_code=400, detail="Invalid JSON") from None
 
     update_id = payload.get("update_id")
     logger.debug(f"Telegram webhook [{channel_id}]: update_id={update_id}")
