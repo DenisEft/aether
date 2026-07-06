@@ -54,7 +54,19 @@
               <div class="avatar-preview" :style="{ background: avatarColor }">
                 {{ userInitials }}
               </div>
-              <span class="avatar-placeholder-text">Upload coming soon</span>
+              <input
+                type="file"
+                accept="image/*"
+                @change="onAvatarChange"
+                class="hidden-input"
+                ref="avatarInput"
+              />
+              <button
+                class="btn-secondary"
+                @click="triggerAvatarUpload"
+              >
+                Upload Avatar
+              </button>
             </div>
           </div>
         </div>
@@ -312,18 +324,65 @@ async function saveField(section: string, field: string) {
   try {
     const body: Record<string, string> = {}
     if (field === 'email') body.email = profileForm.value.email
-    if (field === 'display_name') body.full_name = profileForm.value.display_name
-    await api.put('/users/me', body)
+    if (field === 'display_name') body.display_name = profileForm.value.display_name
+    await api.patch('/api/v1/users/me', body)
     // Update local user state
     if (user.value) {
       if (field === 'email') user.value.email = profileForm.value.email
       if (field === 'display_name') user.value.display_name = profileForm.value.display_name
     }
-    console.log('Profile saved')
-  } catch (e) {
+    // Show success message
+    showToast('Profile updated successfully', 'success')
+  } catch (e: any) {
+    if (e.response?.status === 401 || e.response?.status === 403) {
+      // Handle unauthorized access
+      const auth = useAuthStore()
+      auth.clearAuth()
+      window.location.href = '/login'
+      return
+    }
     console.error('Failed to save profile', e)
+    showToast('Failed to update profile', 'error')
   }
   editingField.value = null
+}
+
+const avatarInput = ref<HTMLInputElement | null>(null)
+
+function triggerAvatarUpload() {
+  avatarInput.value?.click()
+}
+
+async function onAvatarChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  if (!input.files || input.files.length === 0) return
+
+  const file = input.files[0]
+  const api = useApi()
+  try {
+    const formData = new FormData()
+    formData.append('avatar', file)
+    const { data } = await api.post('/api/v1/users/me/avatar', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    // Update user state with new avatar
+    if (user.value) {
+      user.value = data
+    }
+    showToast('Avatar updated successfully', 'success')
+  } catch (e: any) {
+    if (e.response?.status === 401 || e.response?.status === 403) {
+      // Handle unauthorized access
+      const auth = useAuthStore()
+      auth.clearAuth()
+      window.location.href = '/login'
+      return
+    }
+    console.error('Failed to upload avatar', e)
+    showToast('Failed to upload avatar', 'error')
+  }
 }
 
 function cancelEdit() {
@@ -383,11 +442,23 @@ async function deleteAccount() {
   showDeleteConfirm.value = false
   const api = useApi()
   try {
-    await api.delete('/users/me')
+    await api.delete('/api/v1/users/me')
+    // Clear auth and redirect to login
+    const auth = useAuthStore()
+    auth.clearAuth()
     localStorage.clear()
     window.location.href = '/login'
-  } catch (e) {
+    showToast('Account deleted successfully', 'success')
+  } catch (e: any) {
+    if (e.response?.status === 401 || e.response?.status === 403) {
+      // Handle unauthorized access
+      const auth = useAuthStore()
+      auth.clearAuth()
+      window.location.href = '/login'
+      return
+    }
     console.error('Failed to delete account', e)
+    showToast('Failed to delete account', 'error')
   }
 }
 
@@ -894,6 +965,10 @@ onMounted(async () => {
 }
 .btn-confirm-delete:hover {
   background: #c5221f;
+}
+
+.hidden-input {
+  display: none;
 }
 
 /* ── Shared ── */

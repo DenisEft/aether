@@ -1,13 +1,9 @@
 <template>
   <div class="dashboard">
-    <!-- Loading skeleton -->
-    <template v-if="loading">
-      <div class="stats-row">
-        <div v-for="n in 4" :key="n" class="skeleton-card" />
-      </div>
-      <div class="skeleton-card health-skeleton" />
-      <div class="skeleton-card feed-skeleton" />
-    </template>
+    <!-- Loading state -->
+    <div v-if="loading" class="loading-state">
+      <LoadingSpinner text="Loading dashboard..." />
+    </div>
 
     <!-- Error state -->
     <div v-else-if="error" class="error-state">
@@ -131,6 +127,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useApi } from '../../shared/composables/useApi'
+import LoadingSpinner from '../../shared/components/LoadingSpinner.vue'
 
 interface Activity {
   id: string
@@ -292,15 +289,8 @@ onMounted(loadAll)
 .btn-primary { background: var(--color-primary); color: #fff; }
 .btn-primary:hover { background: var(--color-primary-hover); }
 
-/* Skeleton */
-.skeleton-card {
-  background: var(--color-surface); border: 1px solid var(--color-outline);
-  border-radius: var(--radius-md); height: 88px;
-  animation: pulse 1.5s ease-in-out infinite;
-}
-.health-skeleton { height: 200px; }
-.feed-skeleton { height: 300px; }
-@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+/* Loading */
+.loading-state { display: flex; align-items: center; justify-content: center; min-height: 300px; }
 
 /* Responsive */
 @media (max-width: 1024px) {

@@ -27,18 +27,18 @@
       </select>
     </div>
 
-    <!-- Loading -->
-    <div v-if="loading" class="table-skeleton">
-      <div v-for="n in 8" :key="n" class="skeleton-row" :style="{ animationDelay: `${n * 80}ms` }" />
+    <!-- Loading state -->
+    <div v-if="loading" class="loading-state">
+      <LoadingSpinner text="Loading tenants..." />
     </div>
 
-    <!-- Error -->
+    <!-- Error state -->
     <div v-else-if="error" class="error-state">
       <p>{{ error }}</p>
       <button class="btn btn-primary" @click="loadTenants">Retry</button>
     </div>
 
-    <!-- Empty -->
+    <!-- Empty state -->
     <div v-else-if="tenants.length === 0" class="empty-state">
       <span class="empty-icon">🏢</span>
       <h3>No tenants found</h3>
@@ -115,6 +115,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useApi } from '../../shared/composables/useApi'
+import LoadingSpinner from '../../shared/components/LoadingSpinner.vue'
 
 const router = useRouter()
 const api = useApi()
@@ -228,4 +229,5 @@ onMounted(loadTenants)
 .empty-state h3 { font-size: var(--font-lg); color: var(--color-on-surface); }
 
 .error-state { display: flex; flex-direction: column; align-items: center; gap: var(--space-md); padding: var(--space-3xl); color: var(--color-error); }
+.loading-state { display: flex; align-items: center; justify-content: center; min-height: 300px; }
 </style>

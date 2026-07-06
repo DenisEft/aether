@@ -111,6 +111,50 @@ const router = createRouter({
       ],
     },
 
+    // ── Admin Suspense boundary ─────────────────────
+    {
+      path: '/admin-suspense',
+      component: () => import('./admin/layouts/AdminLayout.vue'),
+      meta: { requiresAuth: true, requiresSuperadmin: true },
+      children: [
+        {
+          path: '',
+          name: 'admin-dashboard-suspense',
+          component: () => import('./admin/views/DashboardView.vue'),
+        },
+        {
+          path: 'tenants',
+          name: 'admin-tenants-suspense',
+          component: () => import('./admin/views/TenantsListView.vue'),
+        },
+        {
+          path: 'tenants/:id',
+          name: 'admin-tenant-detail-suspense',
+          component: () => import('./admin/views/TenantDetailView.vue'),
+        },
+        {
+          path: 'subscriptions',
+          name: 'admin-subscriptions-suspense',
+          component: () => import('./admin/views/SubscriptionsView.vue'),
+        },
+        {
+          path: 'drivers',
+          name: 'admin-drivers-suspense',
+          component: () => import('./admin/views/DriversView.vue'),
+        },
+        {
+          path: 'billing',
+          name: 'admin-billing-suspense',
+          component: () => import('./admin/views/BillingView.vue'),
+        },
+        {
+          path: 'audit',
+          name: 'admin-audit-suspense',
+          component: () => import('./admin/views/AuditView.vue'),
+        },
+      ],
+    },
+
     // ── Catch-all redirect ───────────────────────────────────
     {
       path: '/:pathMatch(.*)*',

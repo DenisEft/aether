@@ -78,6 +78,60 @@ export function useAuth() {
     }
   }
 
+  async function updateProfile(displayName: string, email: string): Promise<boolean> {
+    try {
+      const api = useApi()
+      const { data } = await api.patch('/api/v1/users/me', { display_name: displayName, email })
+      store.setUser(data)
+      return true
+    } catch (e: unknown) {
+      const detail =
+        (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      const msg = detail || (e instanceof Error ? e.message : 'Failed to update profile')
+      console.error('[useAuth] Update profile failed:', msg, e)
+      error.value = msg
+      return false
+    }
+  }
+
+  async function uploadAvatar(imageFile: File): Promise<boolean> {
+    try {
+      const api = useApi()
+      const formData = new FormData()
+      formData.append('avatar', imageFile)
+      const { data } = await api.post('/api/v1/users/me/avatar', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      })
+      store.setUser(data)
+      return true
+    } catch (e: unknown) {
+      const detail =
+        (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      const msg = detail || (e instanceof Error ? e.message : 'Failed to upload avatar')
+      console.error('[useAuth] Upload avatar failed:', msg, e)
+      error.value = msg
+      return false
+    }
+  }
+
+  async function deleteAccount(): Promise<boolean> {
+    try {
+      const api = useApi()
+      await api.delete('/api/v1/users/me')
+      store.clearAuth()
+      return true
+    } catch (e: unknown) {
+      const detail =
+        (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      const msg = detail || (e instanceof Error ? e.message : 'Failed to delete account')
+      console.error('[useAuth] Delete account failed:', msg, e)
+      error.value = msg
+      return false
+    }
+  }
+
   async function tryRestoreSession(): Promise<boolean> {
     const token = store.accessToken
     if (!token) return false
@@ -100,6 +154,9 @@ export function useAuth() {
     login,
     logout,
     fetchUser,
+    updateProfile,
+    uploadAvatar,
+    deleteAccount,
     tryRestoreSession,
   }
 }
