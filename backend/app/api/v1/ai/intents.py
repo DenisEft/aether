@@ -27,7 +27,7 @@ router = APIRouter(tags=["intents"])
 # ─────────────────────────────────────────────────────────────
 
 
-@router.get("", response_model=list[IntentResponse])
+@router.get("/intents", response_model=list[IntentResponse])
 async def list_intents(
     db: DBDep,
     current_user: CurrentActiveUser,
@@ -47,7 +47,7 @@ async def list_intents(
     return [IntentResponse.model_validate(i) for i in result.scalars().all()]
 
 
-@router.post("", response_model=IntentResponse, status_code=201)
+@router.post("/intents", response_model=IntentResponse, status_code=201)
 async def create_intent(
     body: IntentCreate,
     db: DBDep,
@@ -69,7 +69,7 @@ async def create_intent(
     return IntentResponse.model_validate(intent)
 
 
-@router.get("/{intent_id}", response_model=IntentResponse)
+@router.get("/intents/{intent_id}", response_model=IntentResponse)
 async def get_intent(
     intent_id: uuid.UUID,
     db: DBDep,
@@ -88,7 +88,7 @@ async def get_intent(
     return IntentResponse.model_validate(intent)
 
 
-@router.patch("/{intent_id}", response_model=IntentResponse)
+@router.patch("/intents/{intent_id}", response_model=IntentResponse)
 async def update_intent(
     intent_id: uuid.UUID,
     body: IntentUpdate,
@@ -122,7 +122,7 @@ async def update_intent(
     return IntentResponse.model_validate(intent)
 
 
-@router.delete("/{intent_id}", status_code=200)
+@router.delete("/intents/{intent_id}", status_code=200)
 async def delete_intent(
     intent_id: uuid.UUID,
     db: DBDep,
@@ -147,7 +147,7 @@ async def delete_intent(
 # ── Intent Templates ─────────────────────────────────────────
 
 
-@router.get("/{intent_id}/templates", response_model=list[IntentTemplateResponse])
+@router.get("/intents/{intent_id}/templates", response_model=list[IntentTemplateResponse])
 async def list_intent_templates(
     intent_id: uuid.UUID,
     db: DBDep,
@@ -165,7 +165,11 @@ async def list_intent_templates(
     return [IntentTemplateResponse.model_validate(t) for t in result.scalars().all()]
 
 
-@router.post("/{intent_id}/templates", response_model=IntentTemplateResponse, status_code=201)
+@router.post(
+    "/intents/{intent_id}/templates",
+    response_model=IntentTemplateResponse,
+    status_code=201,
+)
 async def create_intent_template(
     intent_id: uuid.UUID,
     body: IntentTemplateCreate,
@@ -184,3 +188,27 @@ async def create_intent_template(
     await db.commit()
     await db.refresh(tmpl)
     return IntentTemplateResponse.model_validate(tmpl)
+
+
+@router.delete("/intents/{intent_id}/templates/{template_id}", status_code=200)
+async def delete_intent_template(
+    intent_id: uuid.UUID,
+    template_id: uuid.UUID,
+    db: DBDep,
+    current_user: CurrentActiveUser,
+) -> dict:
+    """Delete an intent template."""
+    result = await db.execute(
+        select(IntentTemplate).where(
+            IntentTemplate.id == template_id,
+            IntentTemplate.intent_id == intent_id,
+            IntentTemplate.tenant_id == current_user.tenant_id,
+        )
+    )
+    tmpl = result.scalar_one_or_none()
+    if tmpl is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Template not found")
+
+    await db.delete(tmpl)
+    await db.commit()
+    return {"message": "Template deleted"}

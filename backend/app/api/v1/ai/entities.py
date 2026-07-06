@@ -25,66 +25,64 @@ router = APIRouter(tags=["entities"])
 # ─────────────────────────────────────────────────────────────
 
 
-@router.get("", response_model=list[EntityTypeResponse])
+@router.get("/entities", response_model=list[EntityTypeResponse])
 async def list_entity_types(
     db: DBDep,
     current_user: CurrentActiveUser,
 ) -> list[EntityTypeResponse]:
     """List entity types for the current tenant."""
-    stmt = (
+    result = await db.execute(
         select(EntityType)
-        .where(
-            EntityType.tenant_id == current_user.tenant_id,
-        )
+        .where(EntityType.tenant_id == current_user.tenant_id)
         .order_by(EntityType.name)
     )
-    result = await db.execute(stmt)
     return [EntityTypeResponse.model_validate(e) for e in result.scalars().all()]
 
 
-@router.post("", response_model=EntityTypeResponse, status_code=201)
+@router.post("/entities", response_model=EntityTypeResponse, status_code=201)
 async def create_entity_type(
     body: EntityTypeCreate,
     db: DBDep,
     current_user: CurrentActiveUser,
 ) -> EntityTypeResponse:
     """Create a new entity type."""
-    entity_type = EntityType(
+    entity = EntityType(
         tenant_id=current_user.tenant_id,
         name=body.name,
         display_name=body.display_name,
-        description=body.description,
-        is_builtin=body.is_builtin,
-        plugin_ids=body.plugin_ids,
+        value_type=body.value_type,
+        pattern=body.pattern,
+        examples=body.examples,
+        lookup_table=body.lookup_table,
     )
-    db.add(entity_type)
+    db.add(entity)
     await db.commit()
-    await db.refresh(entity_type)
-    return EntityTypeResponse.model_validate(entity_type)
+    await db.refresh(entity)
+    return EntityTypeResponse.model_validate(entity)
 
 
-@router.get("/{entity_type_id}", response_model=EntityTypeResponse)
+@router.get("/entities/{entity_id}", response_model=EntityTypeResponse)
 async def get_entity_type(
-    entity_type_id: uuid.UUID,
+    entity_id: uuid.UUID,
     db: DBDep,
     current_user: CurrentActiveUser,
 ) -> EntityTypeResponse:
     """Get entity type details."""
     result = await db.execute(
         select(EntityType).where(
-            EntityType.id == entity_type_id,
+            EntityType.id == entity_id,
             EntityType.tenant_id == current_user.tenant_id,
         )
     )
-    entity_type = result.scalar_one_or_none()
-    if entity_type is None:
+    entity = result.scalar_one_or_none()
+    if entity is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Entity type not found")
-    return EntityTypeResponse.model_validate(entity_type)
+    return EntityTypeResponse.model_validate(entity)
 
 
-@router.put("/{entity_type_id}", response_model=EntityTypeResponse)
+@router.patch("/entities/{entity_id}", response_model=EntityTypeResponse)
 async def update_entity_type(
-    entity_type_id: uuid.UUID,
+    entity_id: uuid.UUID,
     body: EntityTypeUpdate,
     db: DBDep,
     current_user: CurrentActiveUser,
@@ -92,45 +90,47 @@ async def update_entity_type(
     """Update an entity type."""
     result = await db.execute(
         select(EntityType).where(
-            EntityType.id == entity_type_id,
+            EntityType.id == entity_id,
             EntityType.tenant_id == current_user.tenant_id,
         )
     )
-    entity_type = result.scalar_one_or_none()
-    if entity_type is None:
+    entity = result.scalar_one_or_none()
+    if entity is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Entity type not found")
 
     if body.display_name is not None:
-        entity_type.display_name = body.display_name
-    if body.description is not None:
-        entity_type.description = body.description
-    if body.is_builtin is not None:
-        entity_type.is_builtin = body.is_builtin
-    if body.plugin_ids is not None:
-        entity_type.plugin_ids = body.plugin_ids
+        entity.display_name = body.display_name
+    if body.value_type is not None:
+        entity.value_type = body.value_type
+    if body.pattern is not None:
+        entity.pattern = body.pattern
+    if body.examples is not None:
+        entity.examples = body.examples
+    if body.lookup_table is not None:
+        entity.lookup_table = body.lookup_table
 
     await db.commit()
-    await db.refresh(entity_type)
-    return EntityTypeResponse.model_validate(entity_type)
+    await db.refresh(entity)
+    return EntityTypeResponse.model_validate(entity)
 
 
-@router.delete("/{entity_type_id}", status_code=200)
+@router.delete("/entities/{entity_id}", status_code=200)
 async def delete_entity_type(
-    entity_type_id: uuid.UUID,
+    entity_id: uuid.UUID,
     db: DBDep,
     current_user: CurrentActiveUser,
 ) -> dict:
     """Delete an entity type."""
     result = await db.execute(
         select(EntityType).where(
-            EntityType.id == entity_type_id,
+            EntityType.id == entity_id,
             EntityType.tenant_id == current_user.tenant_id,
         )
     )
-    entity_type = result.scalar_one_or_none()
-    if entity_type is None:
+    entity = result.scalar_one_or_none()
+    if entity is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Entity type not found")
 
-    await db.delete(entity_type)
+    await db.delete(entity)
     await db.commit()
     return {"message": "Entity type deleted"}
