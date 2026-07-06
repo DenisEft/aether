@@ -81,7 +81,7 @@ export function useAuth() {
   async function updateProfile(displayName: string, email: string): Promise<boolean> {
     try {
       const api = useApi()
-      const { data } = await api.patch('/api/v1/users/me', { display_name: displayName, email })
+      const { data } = await api.patch('/users/me', { display_name: displayName, email })
       store.setUser(data)
       return true
     } catch (e: unknown) {
@@ -99,11 +99,7 @@ export function useAuth() {
       const api = useApi()
       const formData = new FormData()
       formData.append('avatar', imageFile)
-      const { data } = await api.post('/api/v1/users/me/avatar', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      })
+      const { data } = await api.post('/users/me/avatar', formData)
       store.setUser(data)
       return true
     } catch (e: unknown) {
@@ -119,7 +115,7 @@ export function useAuth() {
   async function deleteAccount(): Promise<boolean> {
     try {
       const api = useApi()
-      await api.delete('/api/v1/users/me')
+      await api.delete('/users/me')
       store.clearAuth()
       return true
     } catch (e: unknown) {
