@@ -5,7 +5,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 import logging
 
 __all__ = [
@@ -23,7 +23,7 @@ __all__ = [
 logger = logging.getLogger("aether.ai.drivers")
 
 
-class DriverStatus(str, Enum):
+class DriverStatus(StrEnum):
     """Driver status enumeration."""
 
     ONLINE = "online"
@@ -32,7 +32,7 @@ class DriverStatus(str, Enum):
     OFFLINE = "offline"
 
 
-class DriverCapability(str, Enum):
+class DriverCapability(StrEnum):
     """Driver capability enumeration."""
 
     CHAT = "chat"
@@ -118,8 +118,6 @@ class DriverMetrics:
     avg_latency_ms: float = 0.0
     cost_usd: float = 0.0
     last_used_at: float | None = None
-    success_rate: float = 1.0
-
     @property
     def success_rate(self) -> float:
         if self.total_requests == 0:

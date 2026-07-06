@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 import logging
 from uuid import UUID
 
@@ -23,7 +23,7 @@ from .model_registry import ModelRegistry
 logger = logging.getLogger("aether.ai.smart_router")
 
 
-class RoutingStrategy(str, Enum):
+class RoutingStrategy(StrEnum):
     """Routing strategy enumeration."""
 
     COST_OPTIMAL = "cost_optimal"  # Most cost-effective (prefers local)
@@ -44,7 +44,8 @@ class RoutingResult:
 
 
 class SmartRouter:
-    """Intelligent AI router with multiple routing strategies, fallback chains, and circuit breakers."""
+    """Intelligent AI router with multiple routing strategies,
+    fallback chains, and circuit breakers."""
 
     def __init__(
         self,
@@ -227,10 +228,7 @@ class SmartRouter:
                 cost_per_1k = (
                     model_info.cost_per_1k_tokens_input + model_info.cost_per_1k_tokens_output
                 )
-                if cost_per_1k > 0:
-                    cost_score = 1.0 / (1.0 + cost_per_1k)  # Inverse scaling
-                else:
-                    cost_score = 1.0
+                cost_score = 1.0 / (1.0 + cost_per_1k) if cost_per_1k > 0 else 1.0
 
                 # Quality score (higher is better)
                 quality_score = (
@@ -385,7 +383,8 @@ class SmartRouter:
                         total_tokens = response.usage.get("total_tokens", 0)
                         completion_tokens = total_tokens - prompt_tokens
 
-                        # Call billing callback if provided (prefer passed callback over instance callback)
+                        # Call billing callback (prefer passed callback
+                        # over instance callback)
                         callback = billing_callback or self.billing_callback
                         if callback:
                             await callback(
@@ -397,7 +396,8 @@ class SmartRouter:
                             )
                     except Exception as e:
                         logger.warning(
-                            f"Billing callback failed for embedding tenant {request.tenant_id}: {e}"
+                            f"Billing callback failed "
+                            f"for embedding tenant {request.tenant_id}: {e}"
                         )
 
                 return response

@@ -2,7 +2,10 @@
   <div class="tenants-list">
     <div class="page-header">
       <h1>Tenants</h1>
-      <button class="btn btn-primary" @click="openCreate">
+      <button
+        class="btn btn-primary"
+        @click="openCreate"
+      >
         <span class="btn-icon">+</span> Create Tenant
       </button>
     </div>
@@ -16,34 +19,66 @@
           class="search-input"
           placeholder="Search by name or slug..."
           @input="onSearchInput"
-        />
+        >
       </div>
-      <select v-model="statusFilter" class="filter-select" @change="loadTenants">
-        <option value="">All Statuses</option>
-        <option value="active">Active</option>
-        <option value="trial">Trial</option>
-        <option value="suspended">Suspended</option>
-        <option value="cancelled">Cancelled</option>
+      <select
+        v-model="statusFilter"
+        class="filter-select"
+        @change="loadTenants"
+      >
+        <option value="">
+          All Statuses
+        </option>
+        <option value="active">
+          Active
+        </option>
+        <option value="trial">
+          Trial
+        </option>
+        <option value="suspended">
+          Suspended
+        </option>
+        <option value="cancelled">
+          Cancelled
+        </option>
       </select>
     </div>
 
     <!-- Loading state -->
-    <div v-if="loading" class="loading-state">
+    <div
+      v-if="loading"
+      class="loading-state"
+    >
       <LoadingSpinner text="Loading tenants..." />
     </div>
 
     <!-- Error state -->
-    <div v-else-if="error" class="error-state">
+    <div
+      v-else-if="error"
+      class="error-state"
+    >
       <p>{{ error }}</p>
-      <button class="btn btn-primary" @click="loadTenants">Retry</button>
+      <button
+        class="btn btn-primary"
+        @click="loadTenants"
+      >
+        Retry
+      </button>
     </div>
 
     <!-- Empty state -->
-    <div v-else-if="tenants.length === 0" class="empty-state">
+    <div
+      v-else-if="tenants.length === 0"
+      class="empty-state"
+    >
       <span class="empty-icon">🏢</span>
       <h3>No tenants found</h3>
-      <p v-if="search || statusFilter">Try adjusting your filters</p>
-      <p v-else>Create your first tenant to get started</p>
+      <p v-if="search || statusFilter">
+        Try adjusting your filters
+      </p>
+      <p v-else>
+        Create your first tenant to get started
+      </p>
     </div>
 
     <!-- Table -->
@@ -70,20 +105,29 @@
             >
               <td>
                 <div class="org-cell">
-                  <div class="org-avatar">{{ tenant.name.charAt(0).toUpperCase() }}</div>
+                  <div class="org-avatar">
+                    {{ tenant.name.charAt(0).toUpperCase() }}
+                  </div>
                   <span class="org-name">{{ tenant.name }}</span>
                 </div>
               </td>
-              <td class="mono">{{ tenant.slug }}</td>
+              <td class="mono">
+                {{ tenant.slug }}
+              </td>
               <td>{{ tenant.plan || '—' }}</td>
               <td>{{ tenant.users ?? '—' }}</td>
               <td>{{ tenant.channels ?? '—' }}</td>
               <td>
-                <span class="status-badge" :class="`status-${tenant.is_active ? 'active' : 'suspended'}`">
+                <span
+                  class="status-badge"
+                  :class="`status-${tenant.is_active ? 'active' : 'suspended'}`"
+                >
                   {{ tenant.is_active ? 'Active' : 'Suspended' }}
                 </span>
               </td>
-              <td class="date-cell">{{ formatDate(tenant.created_at) }}</td>
+              <td class="date-cell">
+                {{ formatDate(tenant.created_at) }}
+              </td>
             </tr>
           </tbody>
         </table>

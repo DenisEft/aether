@@ -1,7 +1,15 @@
 <template>
-  <div class="base-card" :class="{ padded, hover }">
-    <div v-if="title" class="card-header">
-      <h3 class="card-title">{{ title }}</h3>
+  <div
+    class="base-card"
+    :class="{ padded, hover }"
+  >
+    <div
+      v-if="title"
+      class="card-header"
+    >
+      <h3 class="card-title">
+        {{ title }}
+      </h3>
       <slot name="actions" />
     </div>
     <div class="card-body">

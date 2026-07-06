@@ -3,48 +3,99 @@
     <header class="analytics-header">
       <h1>Analytics</h1>
       <div class="period-picker">
-        <button v-for="p in periods" :key="p.value" :class="{ active: period === p.value }" @click="period = p.value">
+        <button
+          v-for="p in periods"
+          :key="p.value"
+          :class="{ active: period === p.value }"
+          @click="period = p.value"
+        >
           {{ p.label }}
         </button>
       </div>
     </header>
 
     <!-- Stats Overview -->
-    <div v-if="loading" class="loading-grid">
-      <div v-for="i in 4" :key="i" class="stat-skeleton" />
+    <div
+      v-if="loading"
+      class="loading-grid"
+    >
+      <div
+        v-for="i in 4"
+        :key="i"
+        class="stat-skeleton"
+      />
     </div>
 
-    <div v-else-if="error" class="error-card">
+    <div
+      v-else-if="error"
+      class="error-card"
+    >
       <p>{{ error }}</p>
-      <button class="btn-retry" @click="loadAnalytics">Retry</button>
+      <button
+        class="btn-retry"
+        @click="loadAnalytics"
+      >
+        Retry
+      </button>
     </div>
 
-    <div v-else class="stats-grid">
+    <div
+      v-else
+      class="stats-grid"
+    >
       <div class="stat-card">
-        <div class="stat-label">Conversations</div>
-        <div class="stat-value">{{ stats.total_conversations }}</div>
-        <div class="stat-change" :class="stats.conversations_change >= 0 ? 'up' : 'down'">
+        <div class="stat-label">
+          Conversations
+        </div>
+        <div class="stat-value">
+          {{ stats.total_conversations }}
+        </div>
+        <div
+          class="stat-change"
+          :class="stats.conversations_change >= 0 ? 'up' : 'down'"
+        >
           {{ stats.conversations_change >= 0 ? '↑' : '↓' }} {{ Math.abs(stats.conversations_change) }}%
         </div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Messages</div>
-        <div class="stat-value">{{ formatNumber(stats.total_messages) }}</div>
-        <div class="stat-change" :class="stats.messages_change >= 0 ? 'up' : 'down'">
+        <div class="stat-label">
+          Messages
+        </div>
+        <div class="stat-value">
+          {{ formatNumber(stats.total_messages) }}
+        </div>
+        <div
+          class="stat-change"
+          :class="stats.messages_change >= 0 ? 'up' : 'down'"
+        >
           {{ stats.messages_change >= 0 ? '↑' : '↓' }} {{ Math.abs(stats.messages_change) }}%
         </div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Response Time</div>
-        <div class="stat-value">{{ stats.avg_response_ms }}ms</div>
-        <div class="stat-change" :class="stats.response_change <= 0 ? 'up' : 'down'">
+        <div class="stat-label">
+          Response Time
+        </div>
+        <div class="stat-value">
+          {{ stats.avg_response_ms }}ms
+        </div>
+        <div
+          class="stat-change"
+          :class="stats.response_change <= 0 ? 'up' : 'down'"
+        >
           {{ stats.response_change > 0 ? '↑' : '↓' }} {{ Math.abs(stats.response_change) }}%
         </div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Resolved</div>
-        <div class="stat-value">{{ stats.resolved_count }}</div>
-        <div class="stat-change" :class="stats.resolved_change >= 0 ? 'up' : 'down'">
+        <div class="stat-label">
+          Resolved
+        </div>
+        <div class="stat-value">
+          {{ stats.resolved_count }}
+        </div>
+        <div
+          class="stat-change"
+          :class="stats.resolved_change >= 0 ? 'up' : 'down'"
+        >
           {{ stats.resolved_change >= 0 ? '↑' : '↓' }} {{ Math.abs(stats.resolved_change) }}%
         </div>
       </div>
@@ -53,10 +104,26 @@
     <!-- Chart Placeholder -->
     <div class="chart-card">
       <h3>Messages by Day</h3>
-      <div v-if="!stats.daily_data?.length" class="chart-empty">No data for this period</div>
-      <div v-else class="bar-chart">
-        <div v-for="d in stats.daily_data" :key="d.date" class="bar-col">
-          <div class="bar" :style="{ height: `${barHeight(d.count)}%` }" :title="`${d.date}: ${d.count}`" />
+      <div
+        v-if="!stats.daily_data?.length"
+        class="chart-empty"
+      >
+        No data for this period
+      </div>
+      <div
+        v-else
+        class="bar-chart"
+      >
+        <div
+          v-for="d in stats.daily_data"
+          :key="d.date"
+          class="bar-col"
+        >
+          <div
+            class="bar"
+            :style="{ height: `${barHeight(d.count)}%` }"
+            :title="`${d.date}: ${d.count}`"
+          />
           <span class="bar-label">{{ formatDate(d.date) }}</span>
         </div>
       </div>
@@ -65,13 +132,28 @@
     <!-- Channel Breakdown -->
     <div class="chart-card">
       <h3>By Channel</h3>
-      <div v-if="!stats.channel_breakdown?.length" class="chart-empty">No channel data</div>
-      <div v-else class="channel-list">
-        <div v-for="c in stats.channel_breakdown" :key="c.channel_type" class="channel-row">
+      <div
+        v-if="!stats.channel_breakdown?.length"
+        class="chart-empty"
+      >
+        No channel data
+      </div>
+      <div
+        v-else
+        class="channel-list"
+      >
+        <div
+          v-for="c in stats.channel_breakdown"
+          :key="c.channel_type"
+          class="channel-row"
+        >
           <span class="ch-icon">{{ channelIcon(c.channel_type) }}</span>
           <span class="ch-name">{{ c.channel_type }}</span>
           <div class="ch-bar-bg">
-            <div class="ch-bar-fill" :style="{ width: `${(c.count / maxChannelCount) * 100}%` }" />
+            <div
+              class="ch-bar-fill"
+              :style="{ width: `${(c.count / maxChannelCount) * 100}%` }"
+            />
           </div>
           <span class="ch-count">{{ c.count }}</span>
         </div>

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 import logging
 import random
 import time
@@ -14,7 +14,7 @@ from . import BaseDriver, DriverHealth, InferenceRequest, InferenceResponse
 logger = logging.getLogger("aether.ai.router")
 
 
-class RoutingStrategy(str, Enum):
+class RoutingStrategy(StrEnum):
     ROUND_ROBIN = "round_robin"
     LEAST_LATENCY = "least_latency"
     LEAST_LOADED = "least_loaded"
@@ -23,7 +23,7 @@ class RoutingStrategy(str, Enum):
     RANDOM = "random"
 
 
-class HealthStatus(str, Enum):
+class HealthStatus(StrEnum):
     HEALTHY = "healthy"
     DEGRADED = "degraded"
     UNHEALTHY = "unhealthy"
@@ -46,9 +46,7 @@ class DriverEntry:
     def is_healthy(self) -> bool:
         if self._consecutive_failures >= 3:
             return False
-        if self._last_health and self._last_health.status == "error":
-            return False
-        return True
+        return not (self._last_health and self._last_health.status == "error")
 
     @property
     def current_load(self) -> float:

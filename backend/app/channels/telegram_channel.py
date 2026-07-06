@@ -17,7 +17,7 @@ class TelegramChannel(BaseChannel):
 
     async def initialize(self) -> None:
         self._client = httpx.AsyncClient(timeout=30.0)
-        bot_info = await self._call("getMe")
+        await self._call("getMe")
         self._status = ChannelStatus.CONNECTED
         return True
 
@@ -104,7 +104,10 @@ class TelegramChannel(BaseChannel):
                         channel_type="telegram",
                         channel_id=self.config.id,
                         external_user_id=str(chat.get("id", "")),
-                        external_user_name=f"{user.get('first_name', '')} {user.get('last_name', '')}".strip()
+                        external_user_name=(
+                            f"{user.get('first_name', '')} "
+                            f"{user.get('last_name', '')}"
+                        ).strip()
                         or user.get("username", "Unknown"),
                         text=msg.get("text", msg.get("caption", "")),
                         attachments=[msg["photo"][-1]["file_id"]] if "photo" in msg else [],

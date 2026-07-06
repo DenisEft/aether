@@ -5,8 +5,11 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy import select
 
+from app.channels.base import ChannelConfig
+from app.channels.router import channel_router
 from app.core.deps import CurrentActiveUser, DBDep
 from app.models.channels import Channel
 from app.schemas.channels import (
@@ -165,11 +168,6 @@ async def test_channel(
 
 
 # === Channel Lifecycle (WebSocket/Polling) ===
-
-from pydantic import BaseModel
-
-from app.channels.base import ChannelConfig
-from app.channels.router import channel_router
 
 
 class ChannelStartRequest(BaseModel):

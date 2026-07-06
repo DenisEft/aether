@@ -1,41 +1,86 @@
 <template>
   <div class="verify-page">
     <div class="verify-card">
-      <div v-if="state === 'loading'" class="verify-loading">
+      <div
+        v-if="state === 'loading'"
+        class="verify-loading"
+      >
         <div class="spinner" />
         <h1>Verifying your email...</h1>
         <p>This will just take a moment</p>
       </div>
 
-      <div v-else-if="state === 'success'" class="verify-success">
-        <div class="success-icon">✅</div>
+      <div
+        v-else-if="state === 'success'"
+        class="verify-success"
+      >
+        <div class="success-icon">
+          ✅
+        </div>
         <h1>Email verified!</h1>
         <p>You're all set. Redirecting to your workspace...</p>
       </div>
 
-      <div v-else-if="state === 'expired'" class="verify-expired">
-        <div class="error-icon">⏰</div>
+      <div
+        v-else-if="state === 'expired'"
+        class="verify-expired"
+      >
+        <div class="error-icon">
+          ⏰
+        </div>
         <h1>Link expired</h1>
         <p>This verification link has expired. We'll send you a new one.</p>
-        <button class="btn-primary" @click="resendVerification" :disabled="resending">
-          <span v-if="resending" class="spinner-sm" />
+        <button
+          class="btn-primary"
+          :disabled="resending"
+          @click="resendVerification"
+        >
+          <span
+            v-if="resending"
+            class="spinner-sm"
+          />
           <span v-else>Resend verification email</span>
         </button>
-        <p v-if="resent" class="success-msg">✅ New verification email sent!</p>
+        <p
+          v-if="resent"
+          class="success-msg"
+        >
+          ✅ New verification email sent!
+        </p>
       </div>
 
-      <div v-else-if="state === 'invalid'" class="verify-error">
-        <div class="error-icon">❌</div>
+      <div
+        v-else-if="state === 'invalid'"
+        class="verify-error"
+      >
+        <div class="error-icon">
+          ❌
+        </div>
         <h1>Invalid link</h1>
         <p>This verification link is invalid or has already been used.</p>
-        <router-link to="/login" class="btn-primary">Back to Sign In</router-link>
+        <router-link
+          to="/login"
+          class="btn-primary"
+        >
+          Back to Sign In
+        </router-link>
       </div>
 
-      <div v-else class="verify-error">
-        <div class="error-icon">⚠️</div>
+      <div
+        v-else
+        class="verify-error"
+      >
+        <div class="error-icon">
+          ⚠️
+        </div>
         <h1>Something went wrong</h1>
         <p>{{ error || 'An unexpected error occurred.' }}</p>
-        <router-link to="/login" class="btn-primary">Back to Sign In</router-link>
+        <router-link
+          to="/login"
+          class="btn-primary"
+        >
+          Back to Sign In
+        </router-link>
       </div>
     </div>
   </div>

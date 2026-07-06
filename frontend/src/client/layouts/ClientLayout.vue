@@ -1,11 +1,27 @@
 <template>
-  <div class="client-layout" :class="{ 'sidebar-collapsed': sidebarCollapsed }">
+  <div
+    class="client-layout"
+    :class="{ 'sidebar-collapsed': sidebarCollapsed }"
+  >
     <!-- Left Sidebar — 240px (collapsible to 56px) -->
-    <aside class="sidebar" @mouseenter="sidebarCollapsed = false" @mouseleave="sidebarCollapsed = true">
+    <aside
+      class="sidebar"
+      @mouseenter="sidebarCollapsed = false"
+      @mouseleave="sidebarCollapsed = true"
+    >
       <div class="sidebar-header">
-        <div class="org-switcher" @click="$router.push('/workspaces')" title="Switch workspace">
-          <div class="org-avatar">{{ orgInitials }}</div>
-          <span v-if="!sidebarCollapsed" class="org-name">{{ tenantName }}</span>
+        <div
+          class="org-switcher"
+          title="Switch workspace"
+          @click="$router.push('/workspaces')"
+        >
+          <div class="org-avatar">
+            {{ orgInitials }}
+          </div>
+          <span
+            v-if="!sidebarCollapsed"
+            class="org-name"
+          >{{ tenantName }}</span>
         </div>
       </div>
       <nav class="sidebar-nav">
@@ -16,8 +32,14 @@
           title="Inbox"
         >
           <span class="nav-icon">📥</span>
-          <span v-if="!sidebarCollapsed" class="nav-label">Inbox</span>
-          <span v-if="!sidebarCollapsed && unreadCount > 0" class="nav-badge">{{ unreadCount }}</span>
+          <span
+            v-if="!sidebarCollapsed"
+            class="nav-label"
+          >Inbox</span>
+          <span
+            v-if="!sidebarCollapsed && unreadCount > 0"
+            class="nav-badge"
+          >{{ unreadCount }}</span>
         </router-link>
         <router-link
           :to="`/${tenantSlug}/settings`"
@@ -26,7 +48,10 @@
           title="Settings"
         >
           <span class="nav-icon">⚙️</span>
-          <span v-if="!sidebarCollapsed" class="nav-label">Settings</span>
+          <span
+            v-if="!sidebarCollapsed"
+            class="nav-label"
+          >Settings</span>
         </router-link>
         <router-link
           :to="`/${tenantSlug}/processes`"
@@ -35,28 +60,50 @@
           title="Processes"
         >
           <span class="nav-icon">⚙️</span>
-          <span v-if="!sidebarCollapsed" class="nav-label">Processes</span>
+          <span
+            v-if="!sidebarCollapsed"
+            class="nav-label"
+          >Processes</span>
         </router-link>
       </nav>
       <div class="sidebar-footer">
-        <div v-if="!sidebarCollapsed" class="user-info">
-          <div class="user-avatar">{{ userInitials }}</div>
+        <div
+          v-if="!sidebarCollapsed"
+          class="user-info"
+        >
+          <div class="user-avatar">
+            {{ userInitials }}
+          </div>
           <span class="user-name">{{ userName }}</span>
         </div>
-        <div v-else class="user-info-collapsed">
-          <div class="user-avatar" :title="userName">{{ userInitials }}</div>
+        <div
+          v-else
+          class="user-info-collapsed"
+        >
+          <div
+            class="user-avatar"
+            :title="userName"
+          >
+            {{ userInitials }}
+          </div>
         </div>
       </div>
     </aside>
 
     <!-- Middle Panel — ConversationList (320px) -->
-    <section class="panel-middle" :class="{ hidden: mobilePanel !== 'list' && mobilePanel !== 'all' }">
+    <section
+      class="panel-middle"
+      :class="{ hidden: mobilePanel !== 'list' && mobilePanel !== 'all' }"
+    >
       <router-view v-if="hasChildRoute" />
       <slot v-else />
     </section>
 
     <!-- Right Panel — Chat/Detail (flex-1) -->
-    <section class="panel-right" :class="{ hidden: mobilePanel !== 'chat' && mobilePanel !== 'all' }">
+    <section
+      class="panel-right"
+      :class="{ hidden: mobilePanel !== 'chat' && mobilePanel !== 'all' }"
+    >
       <!-- Child views render here via router, or we render directly -->
       <router-view v-if="!hasChildRoute" />
     </section>
@@ -70,9 +117,22 @@
     </div>
 
     <!-- Mobile Nav Tabs -->
-    <nav v-if="isMobile" class="mobile-nav">
-      <button :class="{ active: mobilePanel === 'list' }" @click="mobilePanel = 'list'">📋 List</button>
-      <button :class="{ active: mobilePanel === 'chat' }" @click="mobilePanel = 'chat'">💬 Chat</button>
+    <nav
+      v-if="isMobile"
+      class="mobile-nav"
+    >
+      <button
+        :class="{ active: mobilePanel === 'list' }"
+        @click="mobilePanel = 'list'"
+      >
+        📋 List
+      </button>
+      <button
+        :class="{ active: mobilePanel === 'chat' }"
+        @click="mobilePanel = 'chat'"
+      >
+        💬 Chat
+      </button>
     </nav>
   </div>
 </template>

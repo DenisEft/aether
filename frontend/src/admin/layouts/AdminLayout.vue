@@ -1,14 +1,28 @@
 <template>
   <div class="admin-layout">
     <aside class="sidebar">
-      <div class="logo">Aether Admin</div>
+      <div class="logo">
+        Aether Admin
+      </div>
       <nav>
-        <router-link to="/admin">Dashboard</router-link>
-        <router-link to="/admin/tenants">Tenants</router-link>
-        <router-link to="/admin/subscriptions">Subscriptions</router-link>
-        <router-link to="/admin/drivers">Drivers</router-link>
-        <router-link to="/admin/billing">Billing</router-link>
-        <router-link to="/admin/audit">Audit</router-link>
+        <router-link to="/admin">
+          Dashboard
+        </router-link>
+        <router-link to="/admin/tenants">
+          Tenants
+        </router-link>
+        <router-link to="/admin/subscriptions">
+          Subscriptions
+        </router-link>
+        <router-link to="/admin/drivers">
+          Drivers
+        </router-link>
+        <router-link to="/admin/billing">
+          Billing
+        </router-link>
+        <router-link to="/admin/audit">
+          Audit
+        </router-link>
       </nav>
     </aside>
     <main class="content">

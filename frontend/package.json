@@ -11,7 +11,6 @@
   "dependencies": {
     "@vueuse/core": "^14.3.0",
     "axios": "^1.18.1",
-    "eslint": "^10.6.0",
     "lucide-vue-next": "^1.0.0",
     "pinia": "^3.0.4",
     "vue": "^3.5.38",
@@ -20,8 +19,13 @@
   "devDependencies": {
     "@types/node": "^24.13.2",
     "@vitejs/plugin-vue": "^6.0.7",
+    "@vue/eslint-config-prettier": "^10.2.0",
+    "@vue/eslint-config-typescript": "^14.9.0",
     "@vue/tsconfig": "^0.9.1",
+    "eslint": "^9.39.4",
+    "eslint-plugin-vue": "^10.9.2",
     "typescript": "~6.0.2",
+    "typescript-eslint": "^8.62.1",
     "vite": "^8.1.0",
     "vue-tsc": "^3.3.5"
   }

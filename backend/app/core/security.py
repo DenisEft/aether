@@ -131,10 +131,9 @@ async def check_password_not_pwned(password: str) -> bool:
             )
             resp.raise_for_status()
             # Response format: SUFFIX:COUNT per line
-            for line in resp.text.splitlines():
-                if line.startswith(suffix):
-                    return False  # Password found in breaches
-            return True  # Password not found
+            return all(
+                not line.startswith(suffix) for line in resp.text.splitlines()
+            )  # Password not found
     except Exception:
         # If API is unreachable, allow the password (don't block signup)
         return True

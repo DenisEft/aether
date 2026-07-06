@@ -217,10 +217,10 @@ class TemplateService:
 
         # Base query: tenant-specific OR system templates
         conditions = [
-            Template.is_active == True,
+            Template.is_active,
         ]
         if tenant_id is not None:
-            conditions.append((Template.tenant_id == tenant_id) | (Template.tenant_id == None))
+            conditions.append((Template.tenant_id == tenant_id) | (Template.tenant_id is None))
         if document_type:
             conditions.append(Template.document_type == document_type)
         if is_active is not None:
@@ -374,9 +374,9 @@ class TemplateService:
         """Get active templates for a document type (tenant + system)."""
         result = await self._session.execute(
             select(Template).where(
-                (Template.tenant_id == tenant_id) | (Template.tenant_id == None),
+                (Template.tenant_id == tenant_id) | (Template.tenant_id is None),
                 Template.document_type == document_type,
-                Template.is_active == True,
+                Template.is_active,
             )
         )
         return list(result.scalars().all())

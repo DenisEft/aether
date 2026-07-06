@@ -1,11 +1,21 @@
 <template>
-  <div class="workspace" @keydown="handleKeydown" tabindex="0" ref="workspaceEl">
+  <div
+    ref="workspaceEl"
+    class="workspace"
+    tabindex="0"
+    @keydown="handleKeydown"
+  >
     <!-- ── LEFT SIDEBAR ── -->
     <aside class="ws-sidebar">
       <!-- Channel List -->
       <div class="ws-section">
-        <div class="ws-section-title">Channels</div>
-        <div v-if="store.channels.length === 0 && !channelsLoading" class="ws-empty-mini">
+        <div class="ws-section-title">
+          Channels
+        </div>
+        <div
+          v-if="store.channels.length === 0 && !channelsLoading"
+          class="ws-empty-mini"
+        >
           <span class="empty-icon">📡</span>
           <span class="empty-text">No channels</span>
         </div>
@@ -18,13 +28,18 @@
         >
           <span class="channel-icon">{{ channelIcon(channel.channel_type) }}</span>
           <span class="channel-name">{{ channel.display_name }}</span>
-          <span class="channel-dot" :class="{ online: channel.is_active }" />
+          <span
+            class="channel-dot"
+            :class="{ online: channel.is_active }"
+          />
         </div>
       </div>
 
       <!-- Organisation Info -->
       <div class="ws-section">
-        <div class="ws-section-title">Organisation</div>
+        <div class="ws-section-title">
+          Organisation
+        </div>
         <div class="org-info">
           <span class="org-members">👥 {{ memberCount }} members</span>
         </div>
@@ -32,7 +47,10 @@
 
       <!-- Quick Actions -->
       <div class="ws-section">
-        <router-link :to="`/${tenantSlug}/settings`" class="quick-action">
+        <router-link
+          :to="`/${tenantSlug}/settings`"
+          class="quick-action"
+        >
           <span>⚙️</span> Settings
         </router-link>
       </div>
@@ -48,7 +66,7 @@
           placeholder="Search conversations..."
           class="search-input"
           @keydown.escape="searchQuery = ''"
-        />
+        >
       </div>
 
       <!-- Filter Tabs -->
@@ -60,13 +78,23 @@
           @click="activeFilter = tab.value"
         >
           {{ tab.label }}
-          <span v-if="tab.count !== undefined" class="tab-count">{{ tab.count }}</span>
+          <span
+            v-if="tab.count !== undefined"
+            class="tab-count"
+          >{{ tab.count }}</span>
         </button>
       </div>
 
       <!-- Loading Skeleton -->
-      <div v-if="loading" class="conv-loading">
-        <div v-for="i in 5" :key="i" class="conv-skeleton">
+      <div
+        v-if="loading"
+        class="conv-loading"
+      >
+        <div
+          v-for="i in 5"
+          :key="i"
+          class="conv-skeleton"
+        >
           <div class="skel-avatar" />
           <div class="skel-lines">
             <div class="skel-line w-60" />
@@ -77,8 +105,13 @@
       </div>
 
       <!-- Empty State -->
-      <div v-else-if="filteredConversations.length === 0" class="conv-empty">
-        <div class="empty-illustration">💬</div>
+      <div
+        v-else-if="filteredConversations.length === 0"
+        class="conv-empty"
+      >
+        <div class="empty-illustration">
+          💬
+        </div>
         <h3>No conversations yet</h3>
         <p v-if="store.channels.length === 0">
           Connect a channel to start receiving messages from your customers.
@@ -86,13 +119,21 @@
         <p v-else>
           All caught up! New conversations will appear here.
         </p>
-        <router-link v-if="store.channels.length === 0" :to="`/${tenantSlug}/settings`" class="cta-link">
+        <router-link
+          v-if="store.channels.length === 0"
+          :to="`/${tenantSlug}/settings`"
+          class="cta-link"
+        >
           ⚡ Connect a channel
         </router-link>
       </div>
 
       <!-- Conversation Cards -->
-      <div v-else class="conv-list" ref="convListEl">
+      <div
+        v-else
+        ref="convListEl"
+        class="conv-list"
+      >
         <div
           v-for="(conv, idx) in filteredConversations"
           :key="conv.id"
@@ -105,7 +146,10 @@
           @click="selectConversation(conv.id)"
           @keydown.enter="selectConversation(conv.id)"
         >
-          <div class="conv-avatar" :style="{ background: avatarColor(conv.subject) }">
+          <div
+            class="conv-avatar"
+            :style="{ background: avatarColor(conv.subject) }"
+          >
             {{ (conv.subject || '?')[0].toUpperCase() }}
           </div>
           <div class="conv-body">
@@ -113,12 +157,20 @@
               <span class="conv-subject">{{ conv.subject || 'No subject' }}</span>
               <span class="conv-time">{{ formatTime(conv.last_message_at) }}</span>
             </div>
-            <div class="conv-preview">{{ conv.last_message_preview || 'No messages' }}</div>
+            <div class="conv-preview">
+              {{ conv.last_message_preview || 'No messages' }}
+            </div>
             <div class="conv-meta">
-              <span class="conv-channel-badge" v-if="channelName(conv.channel_id)">
+              <span
+                v-if="channelName(conv.channel_id)"
+                class="conv-channel-badge"
+              >
                 {{ channelIconForConv(conv.channel_id) }} {{ channelName(conv.channel_id) }}
               </span>
-              <span v-if="conv.unread_count > 0" class="conv-unread-dot" />
+              <span
+                v-if="conv.unread_count > 0"
+                class="conv-unread-dot"
+              />
             </div>
           </div>
         </div>
@@ -128,8 +180,13 @@
     <!-- ── RIGHT PANEL: ChatWindow ── -->
     <section class="ws-chat">
       <!-- No conversation selected -->
-      <div v-if="!store.activeConversationId" class="chat-empty">
-        <div class="chat-empty-icon">💬</div>
+      <div
+        v-if="!store.activeConversationId"
+        class="chat-empty"
+      >
+        <div class="chat-empty-icon">
+          💬
+        </div>
         <h2>Select a conversation</h2>
         <p>Choose a conversation from the list to start chatting</p>
       </div>
@@ -139,29 +196,55 @@
         <!-- Chat Header -->
         <div class="chat-header">
           <div class="chat-header-left">
-            <button class="btn-back" @click="store.selectConversation(null)" title="Back (Esc)">
+            <button
+              class="btn-back"
+              title="Back (Esc)"
+              @click="store.selectConversation(null)"
+            >
               ←
             </button>
-            <div class="chat-avatar" :style="{ background: avatarColor(activeConversation?.subject || '') }">
+            <div
+              class="chat-avatar"
+              :style="{ background: avatarColor(activeConversation?.subject || '') }"
+            >
               {{ (activeConversation?.subject || '?')[0].toUpperCase() }}
             </div>
             <div class="chat-header-info">
-              <div class="chat-header-name">{{ activeConversation?.subject || 'No subject' }}</div>
-              <div class="chat-header-channel" v-if="activeConversation">
+              <div class="chat-header-name">
+                {{ activeConversation?.subject || 'No subject' }}
+              </div>
+              <div
+                v-if="activeConversation"
+                class="chat-header-channel"
+              >
                 {{ channelIconForConv(activeConversation.channel_id) }}
                 {{ channelName(activeConversation.channel_id) }}
-                <span class="status-dot" :class="{ active: wsConnected }" />
+                <span
+                  class="status-dot"
+                  :class="{ active: wsConnected }"
+                />
               </div>
             </div>
           </div>
           <div class="chat-header-actions">
-            <button class="btn-icon" title="Conversation info">ℹ️</button>
+            <button
+              class="btn-icon"
+              title="Conversation info"
+            >
+              ℹ️
+            </button>
           </div>
         </div>
 
         <!-- Messages -->
-        <div class="chat-messages" ref="messagesEl">
-          <div v-if="messagesLoading" class="messages-loading">
+        <div
+          ref="messagesEl"
+          class="chat-messages"
+        >
+          <div
+            v-if="messagesLoading"
+            class="messages-loading"
+          >
             <span class="spinner" /> Loading messages...
           </div>
           <div
@@ -170,10 +253,17 @@
             class="chat-bubble"
             :class="msg.role"
           >
-            <div class="bubble-content">{{ msg.content }}</div>
-            <div class="bubble-time">{{ formatMessageTime(msg.created_at) }}</div>
+            <div class="bubble-content">
+              {{ msg.content }}
+            </div>
+            <div class="bubble-time">
+              {{ formatMessageTime(msg.created_at) }}
+            </div>
           </div>
-          <div v-if="store.messages.length === 0 && !messagesLoading" class="messages-empty">
+          <div
+            v-if="store.messages.length === 0 && !messagesLoading"
+            class="messages-empty"
+          >
             No messages yet. Say hello!
           </div>
         </div>
@@ -181,19 +271,19 @@
         <!-- Chat Composer -->
         <div class="chat-composer">
           <textarea
+            ref="composerEl"
             v-model="composerText"
             class="composer-input"
             placeholder="Type a message... (Enter to send, Shift+Enter for new line)"
             rows="1"
             @keydown.enter.exact.prevent="sendMessage"
             @input="autoResize"
-            ref="composerEl"
           />
           <button
             class="btn-send"
             :disabled="!composerText.trim()"
-            @click="sendMessage"
             title="Send (Enter)"
+            @click="sendMessage"
           >
             ▶
           </button>

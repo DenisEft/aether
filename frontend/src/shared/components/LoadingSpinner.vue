@@ -1,7 +1,9 @@
 <template>
   <div class="loading-spinner">
-    <div class="spinner"></div>
-    <p class="loading-text">{{ text }}</p>
+    <div class="spinner" />
+    <p class="loading-text">
+      {{ text }}
+    </p>
   </div>
 </template>
 

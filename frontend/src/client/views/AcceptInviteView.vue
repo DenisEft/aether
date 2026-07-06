@@ -1,53 +1,116 @@
 <template>
   <div class="invite-page">
     <div class="invite-card">
-      <div v-if="state === 'loading'" class="invite-loading">
+      <div
+        v-if="state === 'loading'"
+        class="invite-loading"
+      >
         <div class="spinner" />
         <h1>Loading invitation...</h1>
       </div>
 
-      <div v-else-if="state === 'valid'" class="invite-valid">
+      <div
+        v-else-if="state === 'valid'"
+        class="invite-valid"
+      >
         <div class="org-preview">
-          <div class="org-avatar">{{ orgInitials }}</div>
+          <div class="org-avatar">
+            {{ orgInitials }}
+          </div>
           <h1>{{ invite.organisation_name }}</h1>
-          <p class="org-slug">{{ invite.organisation_slug }}</p>
+          <p class="org-slug">
+            {{ invite.organisation_slug }}
+          </p>
         </div>
         <p class="invite-text">
           You've been invited to join <strong>{{ invite.organisation_name }}</strong>
           as <span class="role-badge">{{ roleLabel(invite.role) }}</span>
         </p>
 
-        <div v-if="needsAuth" class="auth-section">
-          <p class="auth-note">Create an account or sign in to accept.</p>
-          <router-link :to="`/signup?invite=${token}`" class="btn-primary btn-full">Create Account</router-link>
-          <router-link :to="`/login?invite=${token}&redirect=/invite/${token}`" class="btn-secondary btn-full">Sign In</router-link>
+        <div
+          v-if="needsAuth"
+          class="auth-section"
+        >
+          <p class="auth-note">
+            Create an account or sign in to accept.
+          </p>
+          <router-link
+            :to="`/signup?invite=${token}`"
+            class="btn-primary btn-full"
+          >
+            Create Account
+          </router-link>
+          <router-link
+            :to="`/login?invite=${token}&redirect=/invite/${token}`"
+            class="btn-secondary btn-full"
+          >
+            Sign In
+          </router-link>
         </div>
-        <button v-else class="btn-primary btn-full" @click="acceptInvite" :disabled="accepting">
-          <span v-if="accepting" class="spinner-sm" />
+        <button
+          v-else
+          class="btn-primary btn-full"
+          :disabled="accepting"
+          @click="acceptInvite"
+        >
+          <span
+            v-if="accepting"
+            class="spinner-sm"
+          />
           <span v-else>Accept Invitation</span>
         </button>
 
-        <p v-if="error" class="error-msg">{{ error }}</p>
+        <p
+          v-if="error"
+          class="error-msg"
+        >
+          {{ error }}
+        </p>
       </div>
 
-      <div v-else-if="state === 'expired'" class="invite-expired">
-        <div class="error-icon">⏰</div>
+      <div
+        v-else-if="state === 'expired'"
+        class="invite-expired"
+      >
+        <div class="error-icon">
+          ⏰
+        </div>
         <h1>Invitation expired</h1>
         <p>This invitation link has expired. Please ask the organisation admin to send a new one.</p>
-        <router-link to="/login" class="btn-primary">Go to Sign In</router-link>
+        <router-link
+          to="/login"
+          class="btn-primary"
+        >
+          Go to Sign In
+        </router-link>
       </div>
 
-      <div v-else-if="state === 'accepted'" class="invite-accepted">
-        <div class="success-icon">🎉</div>
+      <div
+        v-else-if="state === 'accepted'"
+        class="invite-accepted"
+      >
+        <div class="success-icon">
+          🎉
+        </div>
         <h1>Welcome aboard!</h1>
         <p>Redirecting to your new workspace...</p>
       </div>
 
-      <div v-else class="invite-error">
-        <div class="error-icon">❌</div>
+      <div
+        v-else
+        class="invite-error"
+      >
+        <div class="error-icon">
+          ❌
+        </div>
         <h1>Invalid invitation</h1>
         <p>{{ error || 'This invitation link is invalid or has already been used.' }}</p>
-        <router-link to="/login" class="btn-primary">Go to Sign In</router-link>
+        <router-link
+          to="/login"
+          class="btn-primary"
+        >
+          Go to Sign In
+        </router-link>
       </div>
     </div>
   </div>

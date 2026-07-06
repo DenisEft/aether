@@ -2,12 +2,24 @@
   <div class="login-page">
     <div class="login-card">
       <div class="brand">
-        <h1 class="brand-name">Aether</h1>
-        <p class="brand-tagline">AI Customer Experience Platform</p>
+        <h1 class="brand-name">
+          Aether
+        </h1>
+        <p class="brand-tagline">
+          AI Customer Experience Platform
+        </p>
       </div>
 
-      <form class="login-form" @submit.prevent="handleLogin">
-        <div v-if="error" class="form-error">{{ error }}</div>
+      <form
+        class="login-form"
+        @submit.prevent="handleLogin"
+      >
+        <div
+          v-if="error"
+          class="form-error"
+        >
+          {{ error }}
+        </div>
 
         <div class="field">
           <label for="email">Email</label>
@@ -18,7 +30,7 @@
             placeholder="you@company.com"
             autocomplete="username"
             required
-          />
+          >
         </div>
 
         <div class="field">
@@ -30,24 +42,36 @@
             placeholder="••••••••"
             autocomplete="current-password"
             required
-          />
+          >
         </div>
 
-        <button type="submit" class="submit-btn" :disabled="loading">
-          <span v-if="loading" class="spinner" />
+        <button
+          type="submit"
+          class="submit-btn"
+          :disabled="loading"
+        >
+          <span
+            v-if="loading"
+            class="spinner"
+          />
           <span v-else>Sign In</span>
         </button>
       </form>
 
       <div class="links">
-        <router-link to="/signup">Create account</router-link>
+        <router-link to="/signup">
+          Create account
+        </router-link>
         <span class="sep">·</span>
         <a href="#">Forgot password?</a>
       </div>
     </div>
 
     <div class="status-bar">
-      <span class="status-dot" :class="healthClass" />
+      <span
+        class="status-dot"
+        :class="healthClass"
+      />
       <span class="status-text">{{ healthStatus }}</span>
     </div>
   </div>

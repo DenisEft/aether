@@ -1,20 +1,40 @@
 <template>
   <div class="billing">
-    <h1 class="page-title">Billing</h1>
+    <h1 class="page-title">
+      Billing
+    </h1>
 
     <!-- Loading -->
     <template v-if="loading">
       <div class="stats-row">
-        <div v-for="n in 4" :key="n" class="skeleton-card" />
+        <div
+          v-for="n in 4"
+          :key="n"
+          class="skeleton-card"
+        />
       </div>
-      <div class="skeleton-card" style="height:200px;margin-top:var(--space-lg)" />
-      <div class="skeleton-card" style="height:200px;margin-top:var(--space-lg)" />
+      <div
+        class="skeleton-card"
+        style="height:200px;margin-top:var(--space-lg)"
+      />
+      <div
+        class="skeleton-card"
+        style="height:200px;margin-top:var(--space-lg)"
+      />
     </template>
 
     <!-- Error -->
-    <div v-else-if="error" class="error-state">
+    <div
+      v-else-if="error"
+      class="error-state"
+    >
       <p>{{ error }}</p>
-      <button class="btn btn-primary" @click="loadAll">Retry</button>
+      <button
+        class="btn btn-primary"
+        @click="loadAll"
+      >
+        Retry
+      </button>
     </div>
 
     <!-- Content -->
@@ -24,7 +44,10 @@
         <div class="stat-card">
           <span class="stat-label">MRR</span>
           <span class="stat-value">${{ stats.mrr.toLocaleString() }}</span>
-          <span class="stat-change" :class="stats.mrrChange > 0 ? 'positive' : 'negative'">
+          <span
+            class="stat-change"
+            :class="stats.mrrChange > 0 ? 'positive' : 'negative'"
+          >
             {{ stats.mrrChange > 0 ? '↑' : '↓' }} {{ Math.abs(stats.mrrChange) }}%
           </span>
         </div>
@@ -44,11 +67,19 @@
 
       <!-- Revenue Chart (Simple CSS bar chart) -->
       <div class="card">
-        <h3 class="card-title">Monthly Revenue</h3>
-        <div v-if="revenueData.length === 0" class="empty-state">
+        <h3 class="card-title">
+          Monthly Revenue
+        </h3>
+        <div
+          v-if="revenueData.length === 0"
+          class="empty-state"
+        >
           <p>No revenue data yet</p>
         </div>
-        <div v-else class="bar-chart">
+        <div
+          v-else
+          class="bar-chart"
+        >
           <div
             v-for="bar in revenueData"
             :key="bar.month"
@@ -70,22 +101,40 @@
       <div class="two-col">
         <!-- Invoices -->
         <div class="card">
-          <h3 class="card-title">Recent Invoices</h3>
-          <div v-if="invoices.length === 0" class="empty-state">
+          <h3 class="card-title">
+            Recent Invoices
+          </h3>
+          <div
+            v-if="invoices.length === 0"
+            class="empty-state"
+          >
             <p>No invoices</p>
           </div>
-          <table v-else class="data-table">
+          <table
+            v-else
+            class="data-table"
+          >
             <thead>
               <tr><th>Tenant</th><th>Amount</th><th>Status</th><th>Date</th></tr>
             </thead>
             <tbody>
-              <tr v-for="inv in invoices" :key="inv.id">
+              <tr
+                v-for="inv in invoices"
+                :key="inv.id"
+              >
                 <td>{{ inv.tenant_name || inv.tenant_id }}</td>
-                <td class="mono">${{ inv.amount_usd?.toFixed(2) }}</td>
-                <td>
-                  <span class="status-badge" :class="`status-${inv.status}`">{{ inv.status }}</span>
+                <td class="mono">
+                  ${{ inv.amount_usd?.toFixed(2) }}
                 </td>
-                <td class="date-cell">{{ formatDate(inv.due_date) }}</td>
+                <td>
+                  <span
+                    class="status-badge"
+                    :class="`status-${inv.status}`"
+                  >{{ inv.status }}</span>
+                </td>
+                <td class="date-cell">
+                  {{ formatDate(inv.due_date) }}
+                </td>
               </tr>
             </tbody>
           </table>
@@ -93,22 +142,38 @@
 
         <!-- Subscriptions -->
         <div class="card">
-          <h3 class="card-title">Subscriptions</h3>
-          <div v-if="subscriptions.length === 0" class="empty-state">
+          <h3 class="card-title">
+            Subscriptions
+          </h3>
+          <div
+            v-if="subscriptions.length === 0"
+            class="empty-state"
+          >
             <p>No active subscriptions</p>
           </div>
-          <table v-else class="data-table">
+          <table
+            v-else
+            class="data-table"
+          >
             <thead>
               <tr><th>Tenant</th><th>Plan</th><th>Status</th><th>Next Billing</th></tr>
             </thead>
             <tbody>
-              <tr v-for="sub in subscriptions" :key="sub.id">
+              <tr
+                v-for="sub in subscriptions"
+                :key="sub.id"
+              >
                 <td>{{ sub.tenant_name || sub.tenant_id }}</td>
                 <td>{{ sub.plan_name || sub.plan_id }}</td>
                 <td>
-                  <span class="status-badge" :class="`status-${sub.status}`">{{ sub.status }}</span>
+                  <span
+                    class="status-badge"
+                    :class="`status-${sub.status}`"
+                  >{{ sub.status }}</span>
                 </td>
-                <td class="date-cell">{{ formatDate(sub.current_period_end) }}</td>
+                <td class="date-cell">
+                  {{ formatDate(sub.current_period_end) }}
+                </td>
               </tr>
             </tbody>
           </table>

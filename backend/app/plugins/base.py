@@ -12,14 +12,14 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 import uuid
 
 # ── Permissions ──────────────────────────────────────────────
 
 
-class PluginPermission(str, Enum):
+class PluginPermission(StrEnum):
     """Permissions a plugin can request in its manifest."""
 
     READ_DB = "read_db"
@@ -35,7 +35,7 @@ class PluginPermission(str, Enum):
 # ── Plugin Status ────────────────────────────────────────────
 
 
-class PluginStatus(str, Enum):
+class PluginStatus(StrEnum):
     REGISTERED = "registered"  # discovered, not yet validated
     VALIDATED = "validated"  # schema check passed
     ACTIVE = "active"  # running, handling intents

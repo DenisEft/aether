@@ -21,7 +21,10 @@ class ChannelRouter:
         self._message_handlers: list = []  # list of async callables
 
     def register_handler(self, handler):
-        """Register a message handler: async def handler(ctx: MessageContext, channel: BaseChannel) -> None"""
+        """Register a message handler.
+
+        async def handler(ctx: MessageContext, channel: BaseChannel) -> None
+        """
         self._message_handlers.append(handler)
 
     async def start_channel(self, config: ChannelConfig) -> BaseChannel:

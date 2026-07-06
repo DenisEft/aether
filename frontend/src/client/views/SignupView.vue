@@ -2,42 +2,88 @@
   <div class="signup-page">
     <div class="signup-card">
       <div class="brand">
-        <h1 class="brand-name">Create account</h1>
-        <p class="brand-tagline">Set up your Aether workspace</p>
+        <h1 class="brand-name">
+          Create account
+        </h1>
+        <p class="brand-tagline">
+          Set up your Aether workspace
+        </p>
       </div>
 
-      <form class="signup-form" @submit.prevent="handleSignup">
-        <div v-if="error" class="form-error">{{ error }}</div>
+      <form
+        class="signup-form"
+        @submit.prevent="handleSignup"
+      >
+        <div
+          v-if="error"
+          class="form-error"
+        >
+          {{ error }}
+        </div>
 
         <div class="field">
           <label for="display_name">Full Name</label>
-          <input id="display_name" v-model="displayName" type="text" placeholder="Jane Smith" required />
+          <input
+            id="display_name"
+            v-model="displayName"
+            type="text"
+            placeholder="Jane Smith"
+            required
+          >
         </div>
 
         <div class="field">
           <label for="email">Work Email</label>
-          <input id="email" v-model="email" type="email" placeholder="jane@company.com" required />
+          <input
+            id="email"
+            v-model="email"
+            type="email"
+            placeholder="jane@company.com"
+            required
+          >
         </div>
 
         <div class="field">
           <label for="slug">Workspace Slug</label>
-          <input id="slug" v-model="tenantSlug" type="text" placeholder="your-company" required />
+          <input
+            id="slug"
+            v-model="tenantSlug"
+            type="text"
+            placeholder="your-company"
+            required
+          >
           <span class="hint">Letters, numbers, hyphens only. This becomes your URL.</span>
         </div>
 
         <div class="field">
           <label for="password">Password</label>
-          <input id="password" v-model="password" type="password" placeholder="Min 8 characters" required minlength="8" />
+          <input
+            id="password"
+            v-model="password"
+            type="password"
+            placeholder="Min 8 characters"
+            required
+            minlength="8"
+          >
         </div>
 
-        <button type="submit" class="submit-btn" :disabled="loading">
-          <span v-if="loading" class="spinner" />
+        <button
+          type="submit"
+          class="submit-btn"
+          :disabled="loading"
+        >
+          <span
+            v-if="loading"
+            class="spinner"
+          />
           <span v-else>Create Workspace</span>
         </button>
       </form>
 
       <div class="links">
-        <router-link to="/login">Already have an account? Sign in</router-link>
+        <router-link to="/login">
+          Already have an account? Sign in
+        </router-link>
       </div>
     </div>
   </div>

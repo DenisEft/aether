@@ -5,10 +5,10 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 
 
-class ChannelStatus(str, Enum):
+class ChannelStatus(StrEnum):
     DISCONNECTED = "disconnected"
     CONNECTING = "connecting"
     CONNECTED = "connected"

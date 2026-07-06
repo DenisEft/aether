@@ -13,52 +13,99 @@
           class="search-input"
           placeholder="Filter by tenant..."
           @input="onFilterChange"
-        />
+        >
       </div>
-      <select v-model="filters.eventType" class="filter-select" @change="onFilterChange">
-        <option value="">All Events</option>
-        <option value="tenant_created">Tenant Created</option>
-        <option value="tenant_deleted">Tenant Deleted</option>
-        <option value="user_invited">User Invited</option>
-        <option value="subscription_updated">Subscription Updated</option>
-        <option value="driver_added">Driver Added</option>
-        <option value="channel_connected">Channel Connected</option>
-        <option value="billing_invoice">Billing Invoice</option>
-        <option value="system_alert">System Alert</option>
-        <option value="login">Login</option>
+      <select
+        v-model="filters.eventType"
+        class="filter-select"
+        @change="onFilterChange"
+      >
+        <option value="">
+          All Events
+        </option>
+        <option value="tenant_created">
+          Tenant Created
+        </option>
+        <option value="tenant_deleted">
+          Tenant Deleted
+        </option>
+        <option value="user_invited">
+          User Invited
+        </option>
+        <option value="subscription_updated">
+          Subscription Updated
+        </option>
+        <option value="driver_added">
+          Driver Added
+        </option>
+        <option value="channel_connected">
+          Channel Connected
+        </option>
+        <option value="billing_invoice">
+          Billing Invoice
+        </option>
+        <option value="system_alert">
+          System Alert
+        </option>
+        <option value="login">
+          Login
+        </option>
       </select>
       <input
         v-model="filters.dateFrom"
         type="date"
         class="filter-date"
         @change="onFilterChange"
-      />
+      >
       <span class="date-sep">to</span>
       <input
         v-model="filters.dateTo"
         type="date"
         class="filter-date"
         @change="onFilterChange"
-      />
+      >
     </div>
 
     <!-- Loading -->
-    <div v-if="loading" class="table-skeleton">
-      <div v-for="n in 10" :key="n" class="skeleton-row" :style="{ animationDelay: `${n * 60}ms` }" />
+    <div
+      v-if="loading"
+      class="table-skeleton"
+    >
+      <div
+        v-for="n in 10"
+        :key="n"
+        class="skeleton-row"
+        :style="{ animationDelay: `${n * 60}ms` }"
+      />
     </div>
 
     <!-- Error -->
-    <div v-else-if="error" class="error-state">
+    <div
+      v-else-if="error"
+      class="error-state"
+    >
       <p>{{ error }}</p>
-      <button class="btn btn-primary" @click="loadEntries">Retry</button>
+      <button
+        class="btn btn-primary"
+        @click="loadEntries"
+      >
+        Retry
+      </button>
     </div>
 
     <!-- Empty -->
-    <div v-else-if="entries.length === 0" class="empty-state">
+    <div
+      v-else-if="entries.length === 0"
+      class="empty-state"
+    >
       <span class="empty-icon">📋</span>
       <h3>No audit entries found</h3>
-      <p v-if="hasFilters">Try adjusting your filters</p>
-      <p v-else>Events will appear here as they occur</p>
+      <p v-if="hasFilters">
+        Try adjusting your filters
+      </p>
+      <p v-else>
+        Events will appear here as they occur
+      </p>
     </div>
 
     <!-- Table -->
@@ -75,10 +122,18 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="entry in entries" :key="entry.id">
-              <td class="date-cell">{{ formatTimestamp(entry.created_at) }}</td>
+            <tr
+              v-for="entry in entries"
+              :key="entry.id"
+            >
+              <td class="date-cell">
+                {{ formatTimestamp(entry.created_at) }}
+              </td>
               <td>
-                <span class="event-badge" :class="`event-${eventStyle(entry.event_type)}`">
+                <span
+                  class="event-badge"
+                  :class="`event-${eventStyle(entry.event_type)}`"
+                >
                   {{ entry.event_type }}
                 </span>
               </td>
@@ -98,8 +153,14 @@
       </div>
 
       <!-- Expanded rows -->
-      <div v-for="entry in entries" :key="'details-' + entry.id">
-        <div v-if="expanded.has(entry.id)" class="details-panel">
+      <div
+        v-for="entry in entries"
+        :key="'details-' + entry.id"
+      >
+        <div
+          v-if="expanded.has(entry.id)"
+          class="details-panel"
+        >
           <pre class="details-json">{{ formatJSON(entry.details || entry) }}</pre>
         </div>
       </div>

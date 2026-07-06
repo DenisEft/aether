@@ -2,77 +2,155 @@
   <div class="subscriptions">
     <div class="page-header">
       <h1>Subscription Plans</h1>
-      <button v-if="!showForm" class="btn btn-primary" @click="showForm = true">
+      <button
+        v-if="!showForm"
+        class="btn btn-primary"
+        @click="showForm = true"
+      >
         <span class="btn-icon">+</span> Create Plan
       </button>
     </div>
 
     <!-- Inline Create Form -->
-    <div v-if="showForm" class="card create-form">
-      <h3 class="card-title">New Plan</h3>
+    <div
+      v-if="showForm"
+      class="card create-form"
+    >
+      <h3 class="card-title">
+        New Plan
+      </h3>
       <div class="form-grid">
         <div class="form-group">
           <label>Plan Name</label>
-          <input v-model="form.name" class="form-input" placeholder="Pro" />
+          <input
+            v-model="form.name"
+            class="form-input"
+            placeholder="Pro"
+          >
         </div>
         <div class="form-group">
           <label>Slug</label>
-          <input v-model="form.slug" class="form-input" placeholder="pro" />
+          <input
+            v-model="form.slug"
+            class="form-input"
+            placeholder="pro"
+          >
         </div>
         <div class="form-group">
           <label>Monthly Price (USD)</label>
-          <input v-model.number="form.priceMonthly" type="number" class="form-input" min="0" step="0.01" />
+          <input
+            v-model.number="form.priceMonthly"
+            type="number"
+            class="form-input"
+            min="0"
+            step="0.01"
+          >
         </div>
         <div class="form-group">
           <label>Yearly Price (USD)</label>
-          <input v-model.number="form.priceYearly" type="number" class="form-input" min="0" step="0.01" />
+          <input
+            v-model.number="form.priceYearly"
+            type="number"
+            class="form-input"
+            min="0"
+            step="0.01"
+          >
         </div>
         <div class="form-group">
           <label>Tier</label>
-          <input v-model.number="form.tier" type="number" class="form-input" min="1" />
+          <input
+            v-model.number="form.tier"
+            type="number"
+            class="form-input"
+            min="1"
+          >
         </div>
         <div class="form-group">
           <label>Features (comma-separated)</label>
-          <input v-model="form.features" class="form-input" placeholder="Unlimited channels, AI analytics, Priority support" />
+          <input
+            v-model="form.features"
+            class="form-input"
+            placeholder="Unlimited channels, AI analytics, Priority support"
+          >
         </div>
         <div class="form-group checkbox-group">
           <label class="checkbox-label">
-            <input v-model="form.isPublic" type="checkbox" />
+            <input
+              v-model="form.isPublic"
+              type="checkbox"
+            >
             Public plan
           </label>
         </div>
       </div>
       <div class="form-actions">
-        <button class="btn btn-ghost" @click="showForm = false">Cancel</button>
-        <button class="btn btn-primary" :disabled="!form.name || !form.slug || saving" @click="createPlan">
+        <button
+          class="btn btn-ghost"
+          @click="showForm = false"
+        >
+          Cancel
+        </button>
+        <button
+          class="btn btn-primary"
+          :disabled="!form.name || !form.slug || saving"
+          @click="createPlan"
+        >
           {{ saving ? 'Saving...' : 'Create Plan' }}
         </button>
       </div>
     </div>
 
     <!-- Loading -->
-    <div v-if="loading" class="plans-grid">
-      <div v-for="n in 4" :key="n" class="skeleton-card" :style="{ animationDelay: `${n * 100}ms` }" />
+    <div
+      v-if="loading"
+      class="plans-grid"
+    >
+      <div
+        v-for="n in 4"
+        :key="n"
+        class="skeleton-card"
+        :style="{ animationDelay: `${n * 100}ms` }"
+      />
     </div>
 
     <!-- Error -->
-    <div v-else-if="error" class="error-state">
+    <div
+      v-else-if="error"
+      class="error-state"
+    >
       <p>{{ error }}</p>
-      <button class="btn btn-primary" @click="loadPlans">Retry</button>
+      <button
+        class="btn btn-primary"
+        @click="loadPlans"
+      >
+        Retry
+      </button>
     </div>
 
     <!-- Empty -->
-    <div v-else-if="plans.length === 0" class="empty-state">
+    <div
+      v-else-if="plans.length === 0"
+      class="empty-state"
+    >
       <span class="empty-icon">📦</span>
       <h3>No subscription plans</h3>
       <p>Create your first plan to get started</p>
     </div>
 
     <!-- Plans grid -->
-    <div v-else class="plans-grid">
-      <div v-for="plan in plans" :key="plan.id" class="plan-card">
+    <div
+      v-else
+      class="plans-grid"
+    >
+      <div
+        v-for="plan in plans"
+        :key="plan.id"
+        class="plan-card"
+      >
         <div class="plan-header">
-          <h3 class="plan-name">{{ plan.name }}</h3>
+          <h3 class="plan-name">
+            {{ plan.name }}
+          </h3>
           <span class="plan-tier">Tier {{ plan.tier }}</span>
         </div>
         <div class="plan-price">
@@ -80,7 +158,11 @@
           <span class="price-period">/month</span>
         </div>
         <ul class="plan-features">
-          <li v-for="(feat, i) in planFeatures(plan)" :key="i" class="feature-item">
+          <li
+            v-for="(feat, i) in planFeatures(plan)"
+            :key="i"
+            class="feature-item"
+          >
             <span class="feature-check">✓</span> {{ feat }}
           </li>
         </ul>
@@ -88,11 +170,22 @@
           <span class="active-count">
             <strong>{{ plan.active_tenants ?? 0 }}</strong> active tenants
           </span>
-          <span v-if="!plan.is_public" class="private-badge">Private</span>
+          <span
+            v-if="!plan.is_public"
+            class="private-badge"
+          >Private</span>
         </div>
         <div class="plan-actions">
-          <button class="btn btn-ghost btn-sm" @click="editPlan(plan)">Edit</button>
-          <button class="btn btn-ghost btn-sm btn-danger-text" @click="archivePlan(plan)">
+          <button
+            class="btn btn-ghost btn-sm"
+            @click="editPlan(plan)"
+          >
+            Edit
+          </button>
+          <button
+            class="btn btn-ghost btn-sm btn-danger-text"
+            @click="archivePlan(plan)"
+          >
             {{ plan.is_archived ? 'Restore' : 'Archive' }}
           </button>
         </div>
@@ -101,39 +194,78 @@
 
     <!-- Edit Modal -->
     <Teleport to="body">
-      <div v-if="editingPlan" class="modal-backdrop" @click.self="editingPlan = null">
+      <div
+        v-if="editingPlan"
+        class="modal-backdrop"
+        @click.self="editingPlan = null"
+      >
         <div class="modal">
           <div class="modal-header">
             <h2>Edit Plan</h2>
-            <button class="modal-close" @click="editingPlan = null">✕</button>
+            <button
+              class="modal-close"
+              @click="editingPlan = null"
+            >
+              ✕
+            </button>
           </div>
           <div class="modal-body">
             <div class="form-group">
               <label>Plan Name</label>
-              <input v-model="editForm.name" class="form-input" />
+              <input
+                v-model="editForm.name"
+                class="form-input"
+              >
             </div>
             <div class="form-group">
               <label>Monthly Price (USD)</label>
-              <input v-model.number="editForm.priceMonthly" type="number" class="form-input" min="0" step="0.01" />
+              <input
+                v-model.number="editForm.priceMonthly"
+                type="number"
+                class="form-input"
+                min="0"
+                step="0.01"
+              >
             </div>
             <div class="form-group">
               <label>Yearly Price (USD)</label>
-              <input v-model.number="editForm.priceYearly" type="number" class="form-input" min="0" step="0.01" />
+              <input
+                v-model.number="editForm.priceYearly"
+                type="number"
+                class="form-input"
+                min="0"
+                step="0.01"
+              >
             </div>
             <div class="form-group">
               <label>Features (comma-separated)</label>
-              <input v-model="editForm.features" class="form-input" />
+              <input
+                v-model="editForm.features"
+                class="form-input"
+              >
             </div>
             <div class="form-group checkbox-group">
               <label class="checkbox-label">
-                <input v-model="editForm.isPublic" type="checkbox" />
+                <input
+                  v-model="editForm.isPublic"
+                  type="checkbox"
+                >
                 Public plan
               </label>
             </div>
           </div>
           <div class="modal-footer">
-            <button class="btn btn-ghost" @click="editingPlan = null">Cancel</button>
-            <button class="btn btn-primary" :disabled="savingEdit" @click="saveEdit">
+            <button
+              class="btn btn-ghost"
+              @click="editingPlan = null"
+            >
+              Cancel
+            </button>
+            <button
+              class="btn btn-primary"
+              :disabled="savingEdit"
+              @click="saveEdit"
+            >
               {{ savingEdit ? 'Saving...' : 'Save' }}
             </button>
           </div>

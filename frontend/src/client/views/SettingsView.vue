@@ -17,50 +17,62 @@
           <span class="section-label">Profile</span>
           <span class="section-arrow">▾</span>
         </button>
-        <div v-if="openSection === 'profile'" class="section-body">
+        <div
+          v-if="openSection === 'profile'"
+          class="section-body"
+        >
           <div class="field-row">
             <label class="field-label">Email</label>
-            <div class="field-value" @click="startEdit('profile', 'email')">
+            <div
+              class="field-value"
+              @click="startEdit('profile', 'email')"
+            >
               <span v-if="editingField !== 'profile.email'">{{ user?.email || '—' }}</span>
               <input
                 v-else
+                ref="emailInput"
                 v-model="profileForm.email"
                 class="inline-input"
                 @blur="saveField('profile', 'email')"
                 @keydown.enter="saveField('profile', 'email')"
                 @keydown.escape="cancelEdit"
-                ref="emailInput"
-              />
+              >
             </div>
           </div>
           <div class="field-row">
             <label class="field-label">Display Name</label>
-            <div class="field-value" @click="startEdit('profile', 'display_name')">
+            <div
+              class="field-value"
+              @click="startEdit('profile', 'display_name')"
+            >
               <span v-if="editingField !== 'profile.display_name'">{{ user?.display_name || '—' }}</span>
               <input
                 v-else
+                ref="nameInput"
                 v-model="profileForm.display_name"
                 class="inline-input"
                 @blur="saveField('profile', 'display_name')"
                 @keydown.enter="saveField('profile', 'display_name')"
                 @keydown.escape="cancelEdit"
-                ref="nameInput"
-              />
+              >
             </div>
           </div>
           <div class="field-row">
             <label class="field-label">Avatar</label>
             <div class="field-value avatar-field">
-              <div class="avatar-preview" :style="{ background: avatarColor }">
+              <div
+                class="avatar-preview"
+                :style="{ background: avatarColor }"
+              >
                 {{ userInitials }}
               </div>
               <input
+                ref="avatarInput"
                 type="file"
                 accept="image/*"
-                @change="onAvatarChange"
                 class="hidden-input"
-                ref="avatarInput"
-              />
+                @change="onAvatarChange"
+              >
               <button
                 class="btn-secondary"
                 :disabled="isUploadingAvatar"
@@ -85,8 +97,14 @@
           <span class="section-badge">{{ channels.length }}</span>
           <span class="section-arrow">▾</span>
         </button>
-        <div v-if="openSection === 'channels'" class="section-body">
-          <div v-if="channels.length === 0" class="empty-row">
+        <div
+          v-if="openSection === 'channels'"
+          class="section-body"
+        >
+          <div
+            v-if="channels.length === 0"
+            class="empty-row"
+          >
             No channels connected yet.
           </div>
           <div
@@ -97,12 +115,19 @@
             <div class="channel-info">
               <span class="channel-type-icon">{{ channelIcon(channel.channel_type) }}</span>
               <div>
-                <div class="channel-name">{{ channel.display_name }}</div>
-                <div class="channel-type-label">{{ channel.channel_type }}</div>
+                <div class="channel-name">
+                  {{ channel.display_name }}
+                </div>
+                <div class="channel-type-label">
+                  {{ channel.channel_type }}
+                </div>
               </div>
             </div>
             <div class="channel-status-row">
-              <span class="status-dot" :class="{ active: channel.is_active }" />
+              <span
+                class="status-dot"
+                :class="{ active: channel.is_active }"
+              />
               <span class="status-text">{{ channel.is_active ? 'Connected' : 'Disconnected' }}</span>
             </div>
             <button
@@ -113,7 +138,11 @@
               {{ channel.is_active ? 'Disconnect' : 'Connect' }}
             </button>
           </div>
-          <button class="btn-add-channel" disabled title="Coming soon">
+          <button
+            class="btn-add-channel"
+            disabled
+            title="Coming soon"
+          >
             + Add Channel
           </button>
         </div>
@@ -131,18 +160,35 @@
           <span class="section-badge">{{ models.length }}</span>
           <span class="section-arrow">▾</span>
         </button>
-        <div v-if="openSection === 'ai'" class="section-body">
-          <div v-if="models.length === 0" class="empty-row">
+        <div
+          v-if="openSection === 'ai'"
+          class="section-body"
+        >
+          <div
+            v-if="models.length === 0"
+            class="empty-row"
+          >
             No AI models configured.
           </div>
-          <div v-for="model in models" :key="model.id" class="model-row">
+          <div
+            v-for="model in models"
+            :key="model.id"
+            class="model-row"
+          >
             <div class="model-info">
               <span class="model-name">{{ model.display_name }}</span>
               <span class="model-provider">{{ model.provider }}</span>
             </div>
             <div class="model-capabilities">
-              <span v-for="cap in model.capabilities.slice(0, 3)" :key="cap" class="cap-tag">{{ cap }}</span>
-              <span v-if="model.capabilities.length > 3" class="cap-tag cap-more">+{{ model.capabilities.length - 3 }}</span>
+              <span
+                v-for="cap in model.capabilities.slice(0, 3)"
+                :key="cap"
+                class="cap-tag"
+              >{{ cap }}</span>
+              <span
+                v-if="model.capabilities.length > 3"
+                class="cap-tag cap-more"
+              >+{{ model.capabilities.length - 3 }}</span>
             </div>
           </div>
         </div>
@@ -160,10 +206,19 @@
           <span class="section-badge">{{ members.length }}</span>
           <span class="section-arrow">▾</span>
         </button>
-        <div v-if="openSection === 'team'" class="section-body">
+        <div
+          v-if="openSection === 'team'"
+          class="section-body"
+        >
           <!-- Owner/self is always there -->
-          <div v-if="user" class="member-row">
-            <div class="member-avatar" :style="{ background: avatarColor }">
+          <div
+            v-if="user"
+            class="member-row"
+          >
+            <div
+              class="member-avatar"
+              :style="{ background: avatarColor }"
+            >
               {{ userInitials }}
             </div>
             <div class="member-info">
@@ -172,20 +227,37 @@
             </div>
             <span class="member-role role-owner">Owner</span>
           </div>
-          <div v-for="member in members" :key="member.user_id" class="member-row">
-            <div class="member-avatar" :style="{ background: memberAvatarColor(member.full_name) }">
+          <div
+            v-for="member in members"
+            :key="member.user_id"
+            class="member-row"
+          >
+            <div
+              class="member-avatar"
+              :style="{ background: memberAvatarColor(member.full_name) }"
+            >
               {{ (member.full_name || member.email || '?')[0].toUpperCase() }}
             </div>
             <div class="member-info">
               <span class="member-name">{{ member.full_name }}</span>
               <span class="member-email">{{ member.email }}</span>
             </div>
-            <span class="member-role" :class="`role-${member.role.toLowerCase()}`">{{ member.role }}</span>
+            <span
+              class="member-role"
+              :class="`role-${member.role.toLowerCase()}`"
+            >{{ member.role }}</span>
           </div>
-          <div v-if="members.length === 0 && !user" class="empty-row">
+          <div
+            v-if="members.length === 0 && !user"
+            class="empty-row"
+          >
             No team members.
           </div>
-          <button class="btn-add-member" disabled title="Coming soon">
+          <button
+            class="btn-add-member"
+            disabled
+            title="Coming soon"
+          >
             + Invite Member
           </button>
         </div>
@@ -202,7 +274,10 @@
           <span class="section-label">Billing</span>
           <span class="section-arrow">▾</span>
         </button>
-        <div v-if="openSection === 'billing'" class="section-body">
+        <div
+          v-if="openSection === 'billing'"
+          class="section-body"
+        >
           <div class="billing-card">
             <div class="billing-plan">
               <span class="plan-name">Current Plan</span>
@@ -210,12 +285,21 @@
             </div>
             <div class="billing-stat">
               <span class="stat-label">Status</span>
-              <span class="stat-value" :class="subscriptionStatus">
-                <span class="status-dot-sm" :class="subscriptionStatus" />
+              <span
+                class="stat-value"
+                :class="subscriptionStatus"
+              >
+                <span
+                  class="status-dot-sm"
+                  :class="subscriptionStatus"
+                />
                 {{ subStatusLabel }}
               </span>
             </div>
-            <div class="billing-stat" v-if="subscriptionEnd">
+            <div
+              v-if="subscriptionEnd"
+              class="billing-stat"
+            >
               <span class="stat-label">Renews / Expires</span>
               <span class="stat-value">{{ subscriptionEnd }}</span>
             </div>
@@ -223,7 +307,11 @@
               <span class="stat-label">API Calls (this month)</span>
               <span class="stat-value">{{ usageStats.apiCalls.toLocaleString() }}</span>
             </div>
-            <button class="btn-upgrade" disabled title="Coming soon">
+            <button
+              class="btn-upgrade"
+              disabled
+              title="Coming soon"
+            >
               Upgrade Plan
             </button>
           </div>
@@ -241,22 +329,41 @@
           <span class="section-label">Danger Zone</span>
           <span class="section-arrow">▾</span>
         </button>
-        <div v-if="openSection === 'danger'" class="section-body">
+        <div
+          v-if="openSection === 'danger'"
+          class="section-body"
+        >
           <p class="danger-warning">
             Once you delete your account, there is no going back. Please be certain.
           </p>
-          <button class="btn-delete" @click="showDeleteConfirm = true">
+          <button
+            class="btn-delete"
+            @click="showDeleteConfirm = true"
+          >
             Delete Account
           </button>
 
           <!-- Confirm Dialog -->
-          <div v-if="showDeleteConfirm" class="confirm-overlay" @click.self="showDeleteConfirm = false">
+          <div
+            v-if="showDeleteConfirm"
+            class="confirm-overlay"
+            @click.self="showDeleteConfirm = false"
+          >
             <div class="confirm-dialog">
               <h3>Delete Account?</h3>
               <p>This action is permanent and cannot be undone. All your data will be permanently removed.</p>
               <div class="confirm-actions">
-                <button class="btn-cancel" @click="showDeleteConfirm = false">Cancel</button>
-                <button class="btn-confirm-delete" :disabled="isDeletingAccount" @click="handleDeleteAccount">
+                <button
+                  class="btn-cancel"
+                  @click="showDeleteConfirm = false"
+                >
+                  Cancel
+                </button>
+                <button
+                  class="btn-confirm-delete"
+                  :disabled="isDeletingAccount"
+                  @click="handleDeleteAccount"
+                >
                   {{ isDeletingAccount ? 'Deleting...' : 'Delete Forever' }}
                 </button>
               </div>
@@ -281,8 +388,11 @@
     </div>
 
     <!-- ── LOADING OVERLAY ── -->
-    <div v-if="isSavingProfile || isDeletingAccount" class="loading-overlay">
-      <div class="loading-spinner"></div>
+    <div
+      v-if="isSavingProfile || isDeletingAccount"
+      class="loading-overlay"
+    >
+      <div class="loading-spinner" />
     </div>
   </div>
 </template>

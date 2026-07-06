@@ -27,7 +27,7 @@ class Session(Base, UUIDPrimaryKey):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
-    user: Mapped[User] = relationship(back_populates="sessions")
+    user: Mapped["User"] = relationship(back_populates="sessions")
 
 
 class RefreshToken(Base, UUIDPrimaryKey):
@@ -81,7 +81,7 @@ class ApiKey(Base, UUIDPrimaryKey):
     is_revoked: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
-    user: Mapped[User] = relationship(back_populates="api_keys")
+    user: Mapped["User"] = relationship(back_populates="api_keys")
 
 
 class Passkey(Base, UUIDPrimaryKey):

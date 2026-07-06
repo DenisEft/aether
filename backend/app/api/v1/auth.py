@@ -9,7 +9,7 @@ import uuid
 
 from fastapi import APIRouter, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import not_, select
 from webauthn import (
     generate_authentication_options,
     generate_registration_options,
@@ -280,7 +280,7 @@ async def verify_magic_link(
     result = await db.execute(
         select(MagicLink).where(
             MagicLink.token_hash == hashlib.sha256(body.token.encode()).hexdigest(),
-            not MagicLink.is_used,
+            not_(MagicLink.is_used),
             MagicLink.expires_at > datetime.now(UTC),
         )
     )
@@ -330,7 +330,7 @@ async def refresh_token(request: Request, body: RefreshRequest, db: DBDep) -> To
         select(RefreshToken).where(
             RefreshToken.user_id == user_id,
             RefreshToken.token_hash == token_hash,
-            not RefreshToken.is_revoked,
+            not_(RefreshToken.is_revoked),
         )
     )
     old_rt = result.scalar_one_or_none()
@@ -363,7 +363,7 @@ async def logout(
             select(RefreshToken).where(
                 RefreshToken.user_id == current_user.id,
                 RefreshToken.token_hash == token_hash,
-                not RefreshToken.is_revoked,
+                not_(RefreshToken.is_revoked),
             )
         )
         rt = result.scalar_one_or_none()
@@ -447,8 +447,9 @@ async def passkey_register_complete(
     except Exception as e:
         logger.error(f"Passkey registration failed: {e}")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Passkey registration failed"
-        )
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Passkey registration failed",
+        ) from e
 
     # Store the passkey credential
     passkey = Passkey(
@@ -559,8 +560,9 @@ async def passkey_login_complete(
     except Exception as e:
         logger.error(f"Passkey authentication failed: {e}")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Passkey authentication failed"
-        )
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Passkey authentication failed",
+        ) from e
 
     # Update sign count
     passkey.sign_count = authentication_result.sign_count
@@ -703,7 +705,7 @@ async def logout_all(
     result = await db.execute(
         select(RefreshToken).where(
             RefreshToken.user_id == current_user.id,
-            not RefreshToken.is_revoked,
+            not_(RefreshToken.is_revoked),
         )  # noqa: E712
     )
     tokens = result.scalars().all()
@@ -736,7 +738,10 @@ async def change_password(
     if not validate_password_strength(body.new_password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Password must be 12+ characters with uppercase, lowercase, digit, and special character",
+            detail=(
+                "Password must be 12+ characters with "
+                "uppercase, lowercase, digit, and special character"
+            ),
         )
 
     # Hash and save new password
@@ -746,7 +751,7 @@ async def change_password(
     result = await db.execute(
         select(RefreshToken).where(
             RefreshToken.user_id == current_user.id,
-            not RefreshToken.is_revoked,
+            not_(RefreshToken.is_revoked),
         )  # noqa: E712
     )
     for rt in result.scalars().all():
@@ -772,7 +777,7 @@ async def accept_invite(
         select(Invite).where(
             Invite.token_hash == token_hash,
             Invite.is_used == False,  # noqa: E712
-            Invite.expires_at > datetime.now(timezone.utc),
+            Invite.expires_at > datetime.now(UTC),
         )
     )
     invite = result.scalar_one_or_none()
@@ -872,7 +877,7 @@ async def list_api_keys(db: DBDep, current_user: CurrentActiveUser) -> list[ApiK
         select(ApiKey)
         .where(
             ApiKey.user_id == current_user.id,
-            not ApiKey.is_revoked,
+            not_(ApiKey.is_revoked),
         )
         .order_by(ApiKey.created_at.desc())
     )
@@ -945,7 +950,10 @@ async def update_me(
         if not validate_password_strength(body.password):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Password must be 12+ characters with uppercase, lowercase, digit, and special character",
+                detail=(
+                "Password must be 12+ characters with "
+                "uppercase, lowercase, digit, and special character"
+            ),
             )
         current_user.hashed_password = hash_password(body.password)
     await db.commit()
@@ -1004,7 +1012,7 @@ async def delete_me(
     result = await db.execute(
         select(RefreshToken).where(
             RefreshToken.user_id == current_user.id,
-            not RefreshToken.is_revoked,
+            not_(RefreshToken.is_revoked),
         )
     )
     for rt in result.scalars().all():
@@ -1014,7 +1022,7 @@ async def delete_me(
     result = await db.execute(
         select(ApiKey).where(
             ApiKey.user_id == current_user.id,
-            not ApiKey.is_revoked,
+            not_(ApiKey.is_revoked),
         )
     )
     for ak in result.scalars().all():

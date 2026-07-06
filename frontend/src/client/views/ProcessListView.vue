@@ -158,14 +158,30 @@ onUnmounted(() => {
       </div>
     </header>
 
-    <div v-if="loading" class="pl-loading">Loading processes...</div>
-    <div v-else-if="error" class="pl-error">{{ error }}</div>
-    <div v-else-if="instances.length === 0" class="pl-empty">
+    <div
+      v-if="loading"
+      class="pl-loading"
+    >
+      Loading processes...
+    </div>
+    <div
+      v-else-if="error"
+      class="pl-error"
+    >
+      {{ error }}
+    </div>
+    <div
+      v-else-if="instances.length === 0"
+      class="pl-empty"
+    >
       <span class="empty-icon">📭</span>
       <p>No process instances found</p>
     </div>
 
-    <div v-else class="pl-table">
+    <div
+      v-else
+      class="pl-table"
+    >
       <div
         v-for="inst in instances"
         :key="inst.id"
@@ -177,7 +193,10 @@ onUnmounted(() => {
           <span class="pl-block">{{ inst.current_block_label || inst.current_block_key || '—' }}</span>
         </div>
         <div class="pl-meta">
-          <span class="pl-state" :class="stateClass(inst.state)">
+          <span
+            class="pl-state"
+            :class="stateClass(inst.state)"
+          >
             {{ stateLabel(inst.state) }}
           </span>
           <span class="pl-date">{{ formatDate(inst.started_at) }}</span>

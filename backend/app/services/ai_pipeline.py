@@ -65,7 +65,7 @@ class IntentClassificationService:
                     # Find matching template for this intent's category
                     template_stmt = select(Template).where(
                         Template.document_type == intent.category,
-                        Template.is_active == True,
+                        Template.is_active,
                         (Template.tenant_id == tenant_id) | (Template.tenant_id.is_(None)),
                     )
                     template_result = await self._session.execute(template_stmt)

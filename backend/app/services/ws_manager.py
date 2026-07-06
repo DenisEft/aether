@@ -198,8 +198,8 @@ class WebSocketManager:
 
     def _get_connection(self, connection_id: str) -> dict | None:
         """Helper to get connection info."""
-        for channel_type, channel_data in self.connections.items():
-            for channel_id, connections in channel_data.items():
+        for _channel_type, channel_data in self.connections.items():
+            for _channel_id, connections in channel_data.items():
                 if connection_id in connections:
                     return connections[connection_id]
         return None

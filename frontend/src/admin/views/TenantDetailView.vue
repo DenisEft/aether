@@ -1,14 +1,25 @@
 <template>
   <div class="tenant-detail">
     <!-- Loading state -->
-    <div v-if="loading" class="loading-state">
+    <div
+      v-if="loading"
+      class="loading-state"
+    >
       <LoadingSpinner text="Loading tenant..." />
     </div>
 
     <!-- Error -->
-    <div v-else-if="error" class="error-state">
+    <div
+      v-else-if="error"
+      class="error-state"
+    >
       <p>{{ error }}</p>
-      <button class="btn btn-primary" @click="loadTenant">Retry</button>
+      <button
+        class="btn btn-primary"
+        @click="loadTenant"
+      >
+        Retry
+      </button>
     </div>
 
     <!-- Content -->
@@ -16,11 +27,16 @@
       <!-- Header -->
       <div class="detail-header">
         <div class="header-left">
-          <button class="btn btn-ghost btn-sm back-btn" @click="$router.push('/admin/tenants')">
+          <button
+            class="btn btn-ghost btn-sm back-btn"
+            @click="$router.push('/admin/tenants')"
+          >
             ← Back
           </button>
           <div class="header-info">
-            <div class="org-avatar">{{ tenant.name.charAt(0).toUpperCase() }}</div>
+            <div class="org-avatar">
+              {{ tenant.name.charAt(0).toUpperCase() }}
+            </div>
             <div>
               <h1>{{ tenant.name }}</h1>
               <span class="org-slug">@{{ tenant.slug }}</span>
@@ -28,7 +44,10 @@
           </div>
         </div>
         <div class="header-right">
-          <span class="status-badge" :class="`status-${tenant.is_active ? 'active' : 'suspended'}`">
+          <span
+            class="status-badge"
+            :class="`status-${tenant.is_active ? 'active' : 'suspended'}`"
+          >
             {{ tenant.is_active ? 'Active' : 'Suspended' }}
           </span>
         </div>
@@ -50,9 +69,14 @@
       <!-- Tab Content -->
       <div class="tab-content">
         <!-- Details Tab -->
-        <div v-if="activeTab === 'details'" class="tab-pane">
+        <div
+          v-if="activeTab === 'details'"
+          class="tab-pane"
+        >
           <div class="section">
-            <h2 class="section-title">Tenant Details</h2>
+            <h2 class="section-title">
+              Tenant Details
+            </h2>
             <div class="detail-grid">
               <div class="detail-item">
                 <span class="detail-label">Tenant ID</span>
@@ -82,7 +106,9 @@
           </div>
 
           <div class="section">
-            <h2 class="section-title">Billing Information</h2>
+            <h2 class="section-title">
+              Billing Information
+            </h2>
             <div class="detail-grid">
               <div class="detail-item">
                 <span class="detail-label">Subscription Status</span>
@@ -101,17 +127,27 @@
         </div>
 
         <!-- Users Tab -->
-        <div v-else-if="activeTab === 'users'" class="tab-pane">
+        <div
+          v-else-if="activeTab === 'users'"
+          class="tab-pane"
+        >
           <div class="section">
-            <h2 class="section-title">Users</h2>
+            <h2 class="section-title">
+              Users
+            </h2>
             <p>No users found for this tenant.</p>
           </div>
         </div>
 
         <!-- Activity Tab -->
-        <div v-else-if="activeTab === 'activity'" class="tab-pane">
+        <div
+          v-else-if="activeTab === 'activity'"
+          class="tab-pane"
+        >
           <div class="section">
-            <h2 class="section-title">Activity</h2>
+            <h2 class="section-title">
+              Activity
+            </h2>
             <p>No activity found for this tenant.</p>
           </div>
         </div>

@@ -96,7 +96,7 @@ class StreamingBillingTracker:
     ) -> None:
         """Record estimated token usage after streaming completes."""
         completion_tokens = estimate_tokens(response_text)
-        total_tokens = self._estimated_prompt_tokens + completion_tokens
+        self._estimated_prompt_tokens + completion_tokens
 
         try:
             await self.billing.record_tokens(

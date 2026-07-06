@@ -35,9 +35,7 @@ class DriverEntry:
     def is_healthy(self) -> bool:
         if self._consecutive_failures >= 3:
             return False
-        if self._last_health and self._last_health.status == "error":
-            return False
-        return True
+        return not (self._last_health and self._last_health.status == "error")
 
     @property
     def current_load(self) -> float:
@@ -147,7 +145,7 @@ class InferencePool:
 
     def get_driver_for_model(self, model_id: str) -> BaseDriver | None:
         """Get the first driver that supports the given model."""
-        for key, entry in self._drivers.items():
+        for _key, entry in self._drivers.items():
             try:
                 if model_id in entry.driver.get_available_models():
                     return entry.driver

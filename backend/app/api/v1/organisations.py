@@ -10,6 +10,15 @@ from sqlalchemy import select
 from app.core.deps import CurrentActiveUser, DBDep
 from app.models.organisations import Organisation
 from app.models.users import Membership, Role, User
+from app.schemas.organisations import (
+    ChangeRoleRequest,
+    InviteCreateRequest,
+    InviteResponse,
+    OrganisationCreate,
+    OrganisationMemberResponse,
+    OrganisationResponse,
+    OrganisationUpdate,
+)
 
 
 async def _verify_org_membership(
@@ -31,16 +40,6 @@ async def _verify_org_membership(
         )
     return membership
 
-
-from app.schemas.organisations import (
-    ChangeRoleRequest,
-    InviteCreateRequest,
-    InviteResponse,
-    OrganisationCreate,
-    OrganisationMemberResponse,
-    OrganisationResponse,
-    OrganisationUpdate,
-)
 
 router = APIRouter(tags=["organisations"])
 

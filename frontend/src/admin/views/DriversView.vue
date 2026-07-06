@@ -2,28 +2,55 @@
   <div class="drivers">
     <div class="page-header">
       <h1>AI Drivers</h1>
-      <button class="btn btn-primary" @click="openAddModal">
+      <button
+        class="btn btn-primary"
+        @click="openAddModal"
+      >
         <span class="btn-icon">+</span> Add Driver
       </button>
     </div>
 
     <!-- Loading -->
-    <div v-if="loading" class="table-skeleton">
-      <div v-for="n in 6" :key="n" class="skeleton-row" :style="{ animationDelay: `${n * 80}ms` }" />
+    <div
+      v-if="loading"
+      class="table-skeleton"
+    >
+      <div
+        v-for="n in 6"
+        :key="n"
+        class="skeleton-row"
+        :style="{ animationDelay: `${n * 80}ms` }"
+      />
     </div>
 
     <!-- Error -->
-    <div v-else-if="error" class="error-state">
+    <div
+      v-else-if="error"
+      class="error-state"
+    >
       <p>{{ error }}</p>
-      <button class="btn btn-primary" @click="loadDrivers">Retry</button>
+      <button
+        class="btn btn-primary"
+        @click="loadDrivers"
+      >
+        Retry
+      </button>
     </div>
 
     <!-- Empty -->
-    <div v-else-if="drivers.length === 0" class="empty-state">
+    <div
+      v-else-if="drivers.length === 0"
+      class="empty-state"
+    >
       <span class="empty-icon">⚙️</span>
       <h3>No AI drivers configured</h3>
       <p>Add your first driver to enable AI inference</p>
-      <button class="btn btn-primary" @click="openAddModal">Add Driver</button>
+      <button
+        class="btn btn-primary"
+        @click="openAddModal"
+      >
+        Add Driver
+      </button>
     </div>
 
     <!-- Table -->
@@ -41,7 +68,10 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="d in drivers" :key="d.id">
+            <tr
+              v-for="d in drivers"
+              :key="d.id"
+            >
               <td class="driver-name">
                 <span class="driver-icon">{{ driverIcon(d.driver_type) }}</span>
                 <div>
@@ -51,13 +81,18 @@
               </td>
               <td><span class="type-badge">{{ d.driver_type }}</span></td>
               <td>
-                <span class="status-indicator" :class="`driver-${d.status}`">
+                <span
+                  class="status-indicator"
+                  :class="`driver-${d.status}`"
+                >
                   <span class="status-dot" />
                   {{ d.status }}
                 </span>
               </td>
               <td>{{ d.models_count ?? '—' }}</td>
-              <td class="date-cell">{{ d.last_heartbeat ? formatTime(d.last_heartbeat) : 'Never' }}</td>
+              <td class="date-cell">
+                {{ d.last_heartbeat ? formatTime(d.last_heartbeat) : 'Never' }}
+              </td>
               <td>
                 <div class="action-btns">
                   <button
@@ -77,16 +112,30 @@
 
     <!-- Add Driver Modal -->
     <Teleport to="body">
-      <div v-if="showModal" class="modal-backdrop" @click.self="closeModal">
+      <div
+        v-if="showModal"
+        class="modal-backdrop"
+        @click.self="closeModal"
+      >
         <div class="modal">
           <div class="modal-header">
             <h2>{{ modalStep === 4 ? 'Driver Added' : 'Add Driver' }}</h2>
-            <button class="modal-close" @click="closeModal">✕</button>
+            <button
+              class="modal-close"
+              @click="closeModal"
+            >
+              ✕
+            </button>
           </div>
 
           <!-- Step 1: Select Type -->
-          <div v-if="modalStep === 1" class="modal-body">
-            <div class="step-indicator">Step 1 of 4: Select Driver Type</div>
+          <div
+            v-if="modalStep === 1"
+            class="modal-body"
+          >
+            <div class="step-indicator">
+              Step 1 of 4: Select Driver Type
+            </div>
             <div class="type-grid">
               <button
                 v-for="t in driverTypes"
@@ -103,47 +152,90 @@
           </div>
 
           <!-- Step 2: Configure -->
-          <div v-if="modalStep === 2" class="modal-body">
-            <div class="step-indicator">Step 2 of 4: Configure</div>
+          <div
+            v-if="modalStep === 2"
+            class="modal-body"
+          >
+            <div class="step-indicator">
+              Step 2 of 4: Configure
+            </div>
             <div class="form-group">
               <label>Driver Name</label>
-              <input v-model="newDriver.name" class="form-input" placeholder="My Ollama Server" />
+              <input
+                v-model="newDriver.name"
+                class="form-input"
+                placeholder="My Ollama Server"
+              >
             </div>
             <div class="form-group">
               <label>Endpoint URL</label>
-              <input v-model="newDriver.url" class="form-input" placeholder="http://localhost:11434" />
+              <input
+                v-model="newDriver.url"
+                class="form-input"
+                placeholder="http://localhost:11434"
+              >
             </div>
             <div class="form-group">
               <label>Priority</label>
-              <input v-model.number="newDriver.priority" type="number" class="form-input" min="0" max="100" />
+              <input
+                v-model.number="newDriver.priority"
+                type="number"
+                class="form-input"
+                min="0"
+                max="100"
+              >
             </div>
           </div>
 
           <!-- Step 3: Test -->
-          <div v-if="modalStep === 3" class="modal-body">
-            <div class="step-indicator">Step 3 of 4: Test Connection</div>
+          <div
+            v-if="modalStep === 3"
+            class="modal-body"
+          >
+            <div class="step-indicator">
+              Step 3 of 4: Test Connection
+            </div>
             <div class="test-section">
-              <div v-if="testLoading" class="test-status">
+              <div
+                v-if="testLoading"
+                class="test-status"
+              >
                 <span class="spinner" />
                 Testing connection to {{ newDriver.url }}...
               </div>
-              <div v-else-if="testResult === 'success'" class="test-status test-success">
+              <div
+                v-else-if="testResult === 'success'"
+                class="test-status test-success"
+              >
                 ✅ Connection successful — {{ testModels }} models found
               </div>
-              <div v-else-if="testResult === 'fail'" class="test-status test-fail">
+              <div
+                v-else-if="testResult === 'fail'"
+                class="test-status test-fail"
+              >
                 ❌ Connection failed: {{ testError }}
               </div>
-              <div v-else class="test-status">
+              <div
+                v-else
+                class="test-status"
+              >
                 Ready to test connection
               </div>
-              <button class="btn btn-secondary" :disabled="testLoading" @click="testConnection">
+              <button
+                class="btn btn-secondary"
+                :disabled="testLoading"
+                @click="testConnection"
+              >
                 {{ testResult ? 'Retest' : 'Test Connection' }}
               </button>
             </div>
           </div>
 
           <!-- Step 4: Success -->
-          <div v-if="modalStep === 4" class="modal-body">
+          <div
+            v-if="modalStep === 4"
+            class="modal-body"
+          >
             <div class="success-message">
               <span class="success-icon">✅</span>
               <p>Driver has been added successfully!</p>
@@ -152,10 +244,19 @@
 
           <!-- Modal Footer -->
           <div class="modal-footer">
-            <button v-if="modalStep > 1 && modalStep < 4" class="btn btn-ghost" @click="modalStep--">
+            <button
+              v-if="modalStep > 1 && modalStep < 4"
+              class="btn btn-ghost"
+              @click="modalStep--"
+            >
               Back
             </button>
-            <button class="btn btn-ghost" @click="closeModal">Cancel</button>
+            <button
+              class="btn btn-ghost"
+              @click="closeModal"
+            >
+              Cancel
+            </button>
             <button
               v-if="modalStep === 1"
               class="btn btn-primary"
@@ -180,7 +281,11 @@
             >
               Save Driver
             </button>
-            <button v-if="modalStep === 4" class="btn btn-primary" @click="closeModal">
+            <button
+              v-if="modalStep === 4"
+              class="btn btn-primary"
+              @click="closeModal"
+            >
               Done
             </button>
           </div>

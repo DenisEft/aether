@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 
 from fastapi import FastAPI
@@ -73,10 +74,8 @@ async def startup() -> None:
             logging.warning("Could not register local AI driver: %s", exc)
 
     # Start background health checks
-    try:
+    with contextlib.suppress(Exception):
         await pool.start_health_checks()
-    except Exception:
-        pass
 
 
 @app.on_event("shutdown")

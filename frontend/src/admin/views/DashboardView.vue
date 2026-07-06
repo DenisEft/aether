@@ -1,16 +1,31 @@
 <template>
   <div class="dashboard">
     <!-- Loading state -->
-    <div v-if="loading" class="loading-state">
+    <div
+      v-if="loading"
+      class="loading-state"
+    >
       <LoadingSpinner text="Loading dashboard..." />
     </div>
 
     <!-- Error state -->
-    <div v-else-if="error" class="error-state">
-      <div class="error-icon">⚠️</div>
+    <div
+      v-else-if="error"
+      class="error-state"
+    >
+      <div class="error-icon">
+        ⚠️
+      </div>
       <h2>Failed to load dashboard</h2>
-      <p class="error-message">{{ error }}</p>
-      <button class="btn btn-primary" @click="loadAll">Retry</button>
+      <p class="error-message">
+        {{ error }}
+      </p>
+      <button
+        class="btn btn-primary"
+        @click="loadAll"
+      >
+        Retry
+      </button>
     </div>
 
     <!-- Content -->
@@ -18,28 +33,36 @@
       <!-- Stats row -->
       <div class="stats-row">
         <div class="stat-card">
-          <div class="stat-card__icon stat-card__icon--tenants">🏢</div>
+          <div class="stat-card__icon stat-card__icon--tenants">
+            🏢
+          </div>
           <div class="stat-card__content">
             <span class="stat-card__label">Total Tenants</span>
             <span class="stat-card__value">{{ stats.totalTenants }}</span>
           </div>
         </div>
         <div class="stat-card">
-          <div class="stat-card__icon stat-card__icon--users">👥</div>
+          <div class="stat-card__icon stat-card__icon--users">
+            👥
+          </div>
           <div class="stat-card__content">
             <span class="stat-card__label">Active Users</span>
             <span class="stat-card__value">{{ stats.activeUsers }}</span>
           </div>
         </div>
         <div class="stat-card">
-          <div class="stat-card__icon stat-card__icon--ai">🤖</div>
+          <div class="stat-card__icon stat-card__icon--ai">
+            🤖
+          </div>
           <div class="stat-card__content">
             <span class="stat-card__label">AI Requests Today</span>
             <span class="stat-card__value">{{ stats.aiRequestsToday.toLocaleString() }}</span>
           </div>
         </div>
         <div class="stat-card">
-          <div class="stat-card__icon stat-card__icon--revenue">💰</div>
+          <div class="stat-card__icon stat-card__icon--revenue">
+            💰
+          </div>
           <div class="stat-card__content">
             <span class="stat-card__label">Revenue MTD</span>
             <span class="stat-card__value">${{ stats.revenueMTD.toLocaleString() }}</span>
@@ -50,47 +73,72 @@
       <!-- System Health + Quick Actions row -->
       <div class="dashboard-grid">
         <div class="card health-card">
-          <h3 class="card-title">System Health</h3>
+          <h3 class="card-title">
+            System Health
+          </h3>
           <div class="health-list">
             <div class="health-item">
               <span class="health-label">Backend</span>
-              <span class="health-dot" :class="health.backend" />
+              <span
+                class="health-dot"
+                :class="health.backend"
+              />
             </div>
             <div class="health-item">
               <span class="health-label">Database</span>
               <span class="health-value">{{ health.dbLatencyMs }}ms</span>
-              <span class="health-dot" :class="health.db" />
+              <span
+                class="health-dot"
+                :class="health.db"
+              />
             </div>
             <div class="health-item">
               <span class="health-label">Redis</span>
-              <span class="health-dot" :class="health.redis" />
+              <span
+                class="health-dot"
+                :class="health.redis"
+              />
             </div>
             <div class="health-item">
               <span class="health-label">Celery Workers</span>
               <span class="health-value">{{ health.celeryWorkers }} active</span>
-              <span class="health-dot" :class="health.celery" />
+              <span
+                class="health-dot"
+                :class="health.celery"
+              />
             </div>
           </div>
         </div>
 
         <div class="card actions-card">
-          <h3 class="card-title">Quick Actions</h3>
+          <h3 class="card-title">
+            Quick Actions
+          </h3>
           <div class="actions-list">
-            <router-link to="/admin/tenants" class="action-item">
+            <router-link
+              to="/admin/tenants"
+              class="action-item"
+            >
               <span class="action-icon">🏢</span>
               <div>
                 <span class="action-label">Create Tenant</span>
                 <span class="action-sub">Onboard a new organisation</span>
               </div>
             </router-link>
-            <router-link to="/admin/audit" class="action-item">
+            <router-link
+              to="/admin/audit"
+              class="action-item"
+            >
               <span class="action-icon">📋</span>
               <div>
                 <span class="action-label">View Audit Log</span>
                 <span class="action-sub">Review system activity</span>
               </div>
             </router-link>
-            <router-link to="/admin/drivers" class="action-item">
+            <router-link
+              to="/admin/drivers"
+              class="action-item"
+            >
               <span class="action-icon">⚙️</span>
               <div>
                 <span class="action-label">Manage Drivers</span>
@@ -103,13 +151,25 @@
 
       <!-- Recent activity -->
       <div class="card activity-card">
-        <h3 class="card-title">Recent Activity</h3>
-        <div v-if="activities.length === 0" class="empty-state">
+        <h3 class="card-title">
+          Recent Activity
+        </h3>
+        <div
+          v-if="activities.length === 0"
+          class="empty-state"
+        >
           <span class="empty-icon">📭</span>
           <p>No recent activity</p>
         </div>
-        <div v-else class="activity-list">
-          <div v-for="act in activities" :key="act.id" class="activity-item">
+        <div
+          v-else
+          class="activity-list"
+        >
+          <div
+            v-for="act in activities"
+            :key="act.id"
+            class="activity-item"
+          >
             <span class="activity-icon">{{ eventIcon(act.event) }}</span>
             <div class="activity-content">
               <span class="activity-event">{{ act.event }}</span>

@@ -95,7 +95,7 @@ class PluginRegistry:
         await plugin.on_uninstall()
 
         # Remove from intent index
-        for intent_type, plugins in self._intent_index.items():
+        for _intent_type, plugins in self._intent_index.items():
             if plugin_id in plugins:
                 plugins.remove(plugin_id)
 

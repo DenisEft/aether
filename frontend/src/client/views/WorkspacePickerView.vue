@@ -2,14 +2,23 @@
   <div class="picker">
     <div class="picker-container">
       <header class="picker-header">
-        <div class="picker-logo">Aether</div>
+        <div class="picker-logo">
+          Aether
+        </div>
         <h1>Select Workspace</h1>
         <p>Choose a workspace to continue</p>
       </header>
 
       <!-- Loading -->
-      <div v-if="loading" class="picker-grid">
-        <div v-for="i in 4" :key="i" class="ws-card-skeleton">
+      <div
+        v-if="loading"
+        class="picker-grid"
+      >
+        <div
+          v-for="i in 4"
+          :key="i"
+          class="ws-card-skeleton"
+        >
           <div class="skel-line w-70" />
           <div class="skel-line w-40" />
           <div class="skel-line w-50" />
@@ -17,39 +26,70 @@
       </div>
 
       <!-- Error -->
-      <div v-else-if="error" class="picker-error">
+      <div
+        v-else-if="error"
+        class="picker-error"
+      >
         <span class="error-icon">⚠️</span>
         <p>{{ error }}</p>
-        <button class="btn-retry" @click="loadWorkspaces">Try Again</button>
+        <button
+          class="btn-retry"
+          @click="loadWorkspaces"
+        >
+          Try Again
+        </button>
       </div>
 
       <!-- Empty -->
-      <div v-else-if="workspaceList.length === 0" class="picker-empty">
-        <div class="empty-illustration">🏢</div>
+      <div
+        v-else-if="workspaceList.length === 0"
+        class="picker-empty"
+      >
+        <div class="empty-illustration">
+          🏢
+        </div>
         <h2>No workspaces found</h2>
         <p>Create your first workspace to get started.</p>
-        <router-link to="/signup" class="btn-create">Create Workspace</router-link>
+        <router-link
+          to="/signup"
+          class="btn-create"
+        >
+          Create Workspace
+        </router-link>
       </div>
 
       <!-- Grid -->
-      <div v-else class="picker-grid">
+      <div
+        v-else
+        class="picker-grid"
+      >
         <div
           v-for="ws in workspaceList"
           :key="ws.id"
           class="ws-card"
+          tabindex="0"
           @click="navigateTo(ws.slug)"
           @keydown.enter="navigateTo(ws.slug)"
-          tabindex="0"
         >
           <div class="ws-card-header">
-            <div class="ws-logo" :style="{ background: cardColor(ws.name) }">
+            <div
+              class="ws-logo"
+              :style="{ background: cardColor(ws.name) }"
+            >
               {{ ws.name.substring(0, 2).toUpperCase() }}
             </div>
-            <span class="ws-role-badge" :class="roleClass(ws)">Owner</span>
+            <span
+              class="ws-role-badge"
+              :class="roleClass(ws)"
+            >Owner</span>
           </div>
           <div class="ws-card-body">
-            <h3 class="ws-name">{{ ws.name }}</h3>
-            <div class="ws-slug">{{ ws.slug }}</div>
+            <h3 class="ws-name">
+              {{ ws.name }}
+            </h3>
+            <div class="ws-slug">
+              {{ ws.slug }}
+            </div>
           </div>
           <div class="ws-card-footer">
             <span class="ws-members">👥 {{ ws.memberCount || 1 }} member{{ (ws.memberCount || 1) !== 1 ? 's' : '' }}</span>
@@ -58,9 +98,14 @@
         </div>
 
         <!-- Create New Card -->
-        <router-link to="/signup" class="ws-card ws-card-new">
+        <router-link
+          to="/signup"
+          class="ws-card ws-card-new"
+        >
           <div class="new-card-content">
-            <div class="new-icon">+</div>
+            <div class="new-icon">
+              +
+            </div>
             <h3>Create New Workspace</h3>
             <p>Set up a new organisation</p>
           </div>
@@ -69,7 +114,12 @@
 
       <!-- Footer -->
       <footer class="picker-footer">
-        <button class="btn-logout" @click="handleLogout">Sign Out</button>
+        <button
+          class="btn-logout"
+          @click="handleLogout"
+        >
+          Sign Out
+        </button>
       </footer>
     </div>
   </div>

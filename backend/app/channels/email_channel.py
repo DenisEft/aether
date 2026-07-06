@@ -1,5 +1,6 @@
 import asyncio
 from collections.abc import AsyncGenerator
+import contextlib
 import email
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -41,7 +42,8 @@ class EmailChannel(BaseChannel):
             await self._imap.select("INBOX")
             self._status = ChannelStatus.CONNECTED
             logger.info(
-                f"Email channel connected: {self.email_address} via IMAP {self.imap_host}:{self.imap_port}"
+                f"Email channel connected: {self.email_address} "
+                f"via IMAP {self.imap_host}:{self.imap_port}"
             )
             return True
         except Exception as e:
@@ -117,8 +119,8 @@ class EmailChannel(BaseChannel):
 
                 # Wait for new messages (IDLE or polling)
                 try:
-                    idle_task = asyncio.create_task(self._imap.idle_start(timeout=30))
-                    response = await self._imap.wait_server_push()
+                    asyncio.create_task(self._imap.idle_start(timeout=30))
+                    await self._imap.wait_server_push()
                     self._imap.idle_done()
                 except Exception:
                     await asyncio.sleep(10)  # Fallback polling
@@ -129,10 +131,8 @@ class EmailChannel(BaseChannel):
                 logger.error(f"Email poll error: {e}")
                 await asyncio.sleep(30)
                 # Reconnect if needed
-                try:
+                with contextlib.suppress(Exception):
                     await self.initialize()
-                except Exception:
-                    pass
 
     async def _fetch_message(self, msg_id: int) -> MessageContext | None:
         """Fetch and parse a single email message."""
@@ -180,9 +180,7 @@ class EmailChannel(BaseChannel):
         """Close IMAP connection."""
         self._idle_running = False
         if self._imap:
-            try:
+            with contextlib.suppress(Exception):
                 await self._imap.logout()
-            except Exception:
-                pass
             self._imap = None
         self._status = ChannelStatus.DISCONNECTED

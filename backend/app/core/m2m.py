@@ -73,7 +73,7 @@ async def verify_m2m_token(token: str) -> dict:
             )
 
         # Store JTI for anti-replay
-        await redis_client.setex(f"m2m_jti:{jti}", expires_in_minutes * 60, "used")
+        await redis_client.setex(f"m2m_jti:{jti}", M2M_DEFAULT_EXPIRE_MINUTES * 60, "used")
 
         return payload
 
@@ -82,7 +82,7 @@ async def verify_m2m_token(token: str) -> dict:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from None
 
 
 async def verify_m2m_token_middleware(token: str) -> dict:

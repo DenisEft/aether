@@ -1,6 +1,12 @@
 <template>
-  <div class="input-group" :class="{ error: !!error }">
-    <label v-if="label" class="input-label">{{ label }}</label>
+  <div
+    class="input-group"
+    :class="{ error: !!error }"
+  >
+    <label
+      v-if="label"
+      class="input-label"
+    >{{ label }}</label>
     <input
       :type="type"
       :value="modelValue"
@@ -8,8 +14,11 @@
       :disabled="disabled"
       class="input-field"
       @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
-    />
-    <span v-if="error" class="input-error">{{ error }}</span>
+    >
+    <span
+      v-if="error"
+      class="input-error"
+    >{{ error }}</span>
   </div>
 </template>
 

@@ -264,7 +264,7 @@ class DocumentService:
             DocumentNotFoundError: If document doesn't exist.
         """
         document = await self.get(document_id, tenant_id)
-        old_fields = dict(document.fields)
+        dict(document.fields)
         now = datetime.now(UTC)
         changes: dict[str, Any] = {}
 

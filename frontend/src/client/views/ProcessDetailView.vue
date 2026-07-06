@@ -186,20 +186,34 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="process-detail" v-if="instance">
+  <div
+    v-if="instance"
+    class="process-detail"
+  >
     <!-- Header -->
     <header class="pd-header">
-      <button class="pd-back" @click="router.back()">← Back</button>
+      <button
+        class="pd-back"
+        @click="router.back()"
+      >
+        ← Back
+      </button>
       <div>
         <h2>{{ instance.process_name }}</h2>
-        <span class="pd-state" :style="{ background: stateColor(instance.state) }">
+        <span
+          class="pd-state"
+          :style="{ background: stateColor(instance.state) }"
+        >
           {{ instance.state }}
         </span>
       </div>
     </header>
 
     <!-- Pipeline -->
-    <section v-if="pipelineStages.length > 0" class="pd-pipeline">
+    <section
+      v-if="pipelineStages.length > 0"
+      class="pd-pipeline"
+    >
       <div class="pipeline-track">
         <div
           v-for="stage in pipelineStages"
@@ -211,19 +225,33 @@ onUnmounted(() => {
           }"
           :style="{ borderColor: stage.color }"
         >
-          <div class="stage-dot" :style="{ background: stage.color }"></div>
+          <div
+            class="stage-dot"
+            :style="{ background: stage.color }"
+          />
           <span class="stage-name">{{ stage.name }}</span>
         </div>
       </div>
     </section>
 
     <!-- Current Block / Form -->
-    <section v-if="currentBlock && instance.state === 'active'" class="pd-current">
+    <section
+      v-if="currentBlock && instance.state === 'active'"
+      class="pd-current"
+    >
       <h3>{{ currentBlock.label }}</h3>
-      <p v-if="currentBlock.description" class="block-desc">{{ currentBlock.description }}</p>
+      <p
+        v-if="currentBlock.description"
+        class="block-desc"
+      >
+        {{ currentBlock.description }}
+      </p>
 
       <!-- Fields -->
-      <div v-if="currentBlock.config?.fields" class="pd-fields">
+      <div
+        v-if="currentBlock.config?.fields"
+        class="pd-fields"
+      >
         <div
           v-for="field in currentBlock.config.fields"
           :key="field.key"
@@ -234,27 +262,30 @@ onUnmounted(() => {
             v-if="field.type === 'text' || field.type === 'string'"
             type="text"
             :value="fieldValues[currentBlock.key]?.[field.key] || ''"
-            @change="(e: Event) => saveField(currentBlock!.key, field.key, (e.target as HTMLInputElement).value)"
             class="field-input"
-          />
+            @change="(e: Event) => saveField(currentBlock!.key, field.key, (e.target as HTMLInputElement).value)"
+          >
           <input
             v-else-if="field.type === 'number'"
             type="number"
             :value="fieldValues[currentBlock.key]?.[field.key] || 0"
-            @change="(e: Event) => saveField(currentBlock!.key, field.key, Number((e.target as HTMLInputElement).value))"
             class="field-input"
-          />
+            @change="(e: Event) => saveField(currentBlock!.key, field.key, Number((e.target as HTMLInputElement).value))"
+          >
           <textarea
             v-else-if="field.type === 'textarea'"
             :value="fieldValues[currentBlock.key]?.[field.key] || ''"
-            @change="(e: Event) => saveField(currentBlock!.key, field.key, (e.target as HTMLTextAreaElement).value)"
             class="field-input field-textarea"
-          ></textarea>
+            @change="(e: Event) => saveField(currentBlock!.key, field.key, (e.target as HTMLTextAreaElement).value)"
+          />
         </div>
       </div>
 
       <!-- Transitions -->
-      <div v-if="instance.available_transitions?.length" class="pd-transitions">
+      <div
+        v-if="instance.available_transitions?.length"
+        class="pd-transitions"
+      >
         <h4>Available Actions</h4>
         <div class="transition-list">
           <div
@@ -274,14 +305,17 @@ onUnmounted(() => {
               type="text"
               placeholder="Comment (optional)"
               class="transition-comment"
-            />
+            >
           </div>
         </div>
       </div>
     </section>
 
     <!-- Completed message -->
-    <section v-else-if="instance.state === 'completed'" class="pd-completed">
+    <section
+      v-else-if="instance.state === 'completed'"
+      class="pd-completed"
+    >
       <span class="done-icon">✅</span>
       <p>Process completed {{ formatDate(instance.completed_at) }}</p>
     </section>
@@ -305,8 +339,18 @@ onUnmounted(() => {
   </div>
 
   <!-- States -->
-  <div v-else-if="loading" class="pd-loading">Loading process...</div>
-  <div v-else-if="error" class="pd-error">{{ error }}</div>
+  <div
+    v-else-if="loading"
+    class="pd-loading"
+  >
+    Loading process...
+  </div>
+  <div
+    v-else-if="error"
+    class="pd-error"
+  >
+    {{ error }}
+  </div>
 </template>
 
 <style scoped>

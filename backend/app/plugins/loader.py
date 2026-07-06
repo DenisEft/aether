@@ -152,7 +152,7 @@ class PluginLoader:
         plugins = []
 
         result = await session.execute(
-            select(ServiceDefinition).where(ServiceDefinition.is_active == True)
+            select(ServiceDefinition).where(ServiceDefinition.is_active)
         )
         definitions = result.scalars().all()
 

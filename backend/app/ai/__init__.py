@@ -6,7 +6,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 import logging
-from typing import Optional
 
 __all__ = [
     "BaseDriver",
@@ -96,7 +95,6 @@ class DriverMetrics:
     last_used_at: float | None = None
     success_rate: float = 1.0
 
-    @property
     @property
     def success_rate(self) -> float:
         if self.total_requests == 0:
