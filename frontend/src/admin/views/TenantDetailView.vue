@@ -300,7 +300,7 @@ onMounted(loadTenant)
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-md;
+  gap: var(--space-md);
   padding: var(--space-3xl);
   color: var(--color-error);
 }

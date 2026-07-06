@@ -63,9 +63,10 @@
               />
               <button
                 class="btn-secondary"
+                :disabled="isUploadingAvatar"
                 @click="triggerAvatarUpload"
               >
-                Upload Avatar
+                {{ isUploadingAvatar ? 'Uploading...' : 'Upload Avatar' }}
               </button>
             </div>
           </div>
@@ -255,28 +256,60 @@
               <p>This action is permanent and cannot be undone. All your data will be permanently removed.</p>
               <div class="confirm-actions">
                 <button class="btn-cancel" @click="showDeleteConfirm = false">Cancel</button>
-                <button class="btn-confirm-delete" @click="deleteAccount">Delete Forever</button>
+                <button class="btn-confirm-delete" :disabled="isDeletingAccount" @click="handleDeleteAccount">
+                  {{ isDeletingAccount ? 'Deleting...' : 'Delete Forever' }}
+                </button>
               </div>
             </div>
           </div>
         </div>
       </section>
     </div>
+
+    <!-- ── TOASTS ── -->
+    <div class="toast-container">
+      <transition-group name="toast">
+        <div
+          v-for="toast in toasts"
+          :key="toast.id"
+          class="toast-item"
+          :class="toast.type"
+        >
+          {{ toast.message }}
+        </div>
+      </transition-group>
+    </div>
+
+    <!-- ── LOADING OVERLAY ── -->
+    <div v-if="isSavingProfile || isDeletingAccount" class="loading-overlay">
+      <div class="loading-spinner"></div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue'
-import { useRoute } from 'vue-router'
 import { useAuth } from '../../shared/composables/useAuth'
 import { useTenant } from '../../shared/composables/useTenant'
 import { useWorkspaceStore } from '../../stores/workspace'
 import { useAdminStore } from '../../stores/admin'
+import { useApi } from '../../shared/composables/useApi'
 import type { ChannelType } from '../../shared/types/common'
 import type { OrganisationMember } from '../../shared/types/client'
 
-const route = useRoute()
-const { currentUser: user } = useAuth()
+// ── Toast helper ──
+const toasts = ref<{ id: number; message: string; type: 'success' | 'error' }[]>([])
+let toastId = 0
+
+function showToast(message: string, type: 'success' | 'error') {
+  const id = ++toastId
+  toasts.value.push({ id, message, type })
+  setTimeout(() => {
+    toasts.value = toasts.value.filter(t => t.id !== id)
+  }, 4000)
+}
+
+const { currentUser: user, updateProfile, uploadAvatar, deleteAccount } = useAuth()
 const { currentTenant } = useTenant()
 const workspaceStore = useWorkspaceStore()
 const adminStore = useAdminStore()
@@ -307,6 +340,9 @@ const editingField = ref<string | null>(null)
 const profileForm = ref({ email: '', display_name: '' })
 const emailInput = ref<HTMLInputElement | null>(null)
 const nameInput = ref<HTMLInputElement | null>(null)
+const isSavingProfile = ref(false)
+const isUploadingAvatar = ref(false)
+const isDeletingAccount = ref(false)
 
 function startEdit(section: string, field: string) {
   const key = `${section}.${field}`
@@ -320,31 +356,23 @@ function startEdit(section: string, field: string) {
 }
 
 async function saveField(section: string, field: string) {
-  const api = useApi()
+  isSavingProfile.value = true
   try {
-    const body: Record<string, string> = {}
-    if (field === 'email') body.email = profileForm.value.email
-    if (field === 'display_name') body.display_name = profileForm.value.display_name
-    await api.patch('/api/v1/users/me', body)
-    // Update local user state
-    if (user.value) {
-      if (field === 'email') user.value.email = profileForm.value.email
-      if (field === 'display_name') user.value.display_name = profileForm.value.display_name
-    }
-    // Show success message
-    showToast('Profile updated successfully', 'success')
-  } catch (e: any) {
-    if (e.response?.status === 401 || e.response?.status === 403) {
-      // Handle unauthorized access
-      const auth = useAuthStore()
-      auth.clearAuth()
-      window.location.href = '/login'
+    const displayName = field === 'display_name' ? profileForm.value.display_name : (user.value?.display_name || '')
+    const email = field === 'email' ? profileForm.value.email : (user.value?.email || '')
+    const success = await updateProfile(displayName, email)
+    if (!success) {
+      showToast('Failed to update profile', 'error')
       return
     }
+    showToast('Profile updated successfully', 'success')
+    editingField.value = null
+  } catch (e: any) {
     console.error('Failed to save profile', e)
     showToast('Failed to update profile', 'error')
+  } finally {
+    isSavingProfile.value = false
   }
-  editingField.value = null
 }
 
 const avatarInput = ref<HTMLInputElement | null>(null)
@@ -358,30 +386,21 @@ async function onAvatarChange(event: Event) {
   if (!input.files || input.files.length === 0) return
 
   const file = input.files[0]
-  const api = useApi()
+  isUploadingAvatar.value = true
   try {
-    const formData = new FormData()
-    formData.append('avatar', file)
-    const { data } = await api.post('/api/v1/users/me/avatar', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    })
-    // Update user state with new avatar
-    if (user.value) {
-      user.value = data
+    const success = await uploadAvatar(file)
+    if (!success) {
+      showToast('Failed to upload avatar', 'error')
+      return
     }
     showToast('Avatar updated successfully', 'success')
   } catch (e: any) {
-    if (e.response?.status === 401 || e.response?.status === 403) {
-      // Handle unauthorized access
-      const auth = useAuthStore()
-      auth.clearAuth()
-      window.location.href = '/login'
-      return
-    }
     console.error('Failed to upload avatar', e)
     showToast('Failed to upload avatar', 'error')
+  } finally {
+    isUploadingAvatar.value = false
+    // Reset file input so the same file can be re-selected
+    if (avatarInput.value) avatarInput.value.value = ''
   }
 }
 
@@ -438,27 +457,25 @@ const usageStats = ref({ apiCalls: 0 })
 // ── Danger Zone ──
 const showDeleteConfirm = ref(false)
 
-async function deleteAccount() {
+async function handleDeleteAccount() {
   showDeleteConfirm.value = false
-  const api = useApi()
+  isDeletingAccount.value = true
   try {
-    await api.delete('/api/v1/users/me')
-    // Clear auth and redirect to login
-    const auth = useAuthStore()
-    auth.clearAuth()
-    localStorage.clear()
-    window.location.href = '/login'
-    showToast('Account deleted successfully', 'success')
-  } catch (e: any) {
-    if (e.response?.status === 401 || e.response?.status === 403) {
-      // Handle unauthorized access
-      const auth = useAuthStore()
-      auth.clearAuth()
-      window.location.href = '/login'
+    const success = await deleteAccount()
+    if (!success) {
+      showToast('Failed to delete account', 'error')
       return
     }
+    showToast('Account deleted successfully', 'success')
+    setTimeout(() => {
+      localStorage.clear()
+      window.location.href = '/login'
+    }, 500)
+  } catch (e: any) {
     console.error('Failed to delete account', e)
     showToast('Failed to delete account', 'error')
+  } finally {
+    isDeletingAccount.value = false
   }
 }
 
@@ -970,6 +987,54 @@ onMounted(async () => {
 .hidden-input {
   display: none;
 }
+
+/* ── Toasts ── */
+.toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+}
+.toast-item {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-width: 320px;
+  word-wrap: break-word;
+}
+.toast-item.success { background: #1e8e3e; }
+.toast-item.error { background: #d93025; }
+.toast-enter-active, .toast-leave-active {
+  transition: all 0.3s ease;
+}
+.toast-enter-from { opacity: 0; transform: translateY(12px); }
+.toast-leave-to { opacity: 0; transform: translateY(-12px); }
+
+/* ── Loading Overlay ── */
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.6);
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.loading-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid #e0e0e0;
+  border-top-color: #1a73e8;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 /* ── Shared ── */
 .empty-row {
