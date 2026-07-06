@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import uuid
 from datetime import date, datetime
+import uuid
 
 from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String
-from sqlalchemy.dialects.postgresql import UUID, BYTEA, JSONB
+from sqlalchemy.dialects.postgresql import BYTEA, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKey, utcnow
@@ -25,8 +25,8 @@ class Channel(Base, UUIDPrimaryKey, TimestampMixin):
     priority: Mapped[int] = mapped_column(Integer, default=0)
     config: Mapped[dict] = mapped_column(JSONB, default=dict)
 
-    tenant: Mapped["Tenant"] = relationship(back_populates="channels")
-    conversations: Mapped[list["Conversation"]] = relationship(back_populates="channel")
+    tenant: Mapped[Tenant] = relationship(back_populates="channels")
+    conversations: Mapped[list[Conversation]] = relationship(back_populates="channel")
 
 
 class ChannelCredential(Base, UUIDPrimaryKey):
@@ -41,9 +41,7 @@ class ChannelCredential(Base, UUIDPrimaryKey):
     credential_type: Mapped[CredentialTypeEnum] = mapped_column(String, nullable=False)
     encrypted_value: Mapped[bytes] = mapped_column(BYTEA, nullable=False)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class ChannelUsage(Base, UUIDPrimaryKey):
@@ -60,6 +58,4 @@ class ChannelUsage(Base, UUIDPrimaryKey):
     messages_out: Mapped[int] = mapped_column(Integer, default=0)
     errors: Mapped[int] = mapped_column(Integer, default=0)
     latency_avg_ms: Mapped[float | None] = mapped_column
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import uuid
 from datetime import datetime
+import uuid
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKey, utcnow
@@ -32,9 +32,9 @@ class Conversation(Base, UUIDPrimaryKey, TimestampMixin):
     meta_info: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
     last_message_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    tenant: Mapped["Tenant"] = relationship(back_populates="conversations")
-    channel: Mapped["Channel"] = relationship(back_populates="conversations")
-    messages: Mapped[list["Message"]] = relationship(back_populates="conversation")
+    tenant: Mapped[Tenant] = relationship(back_populates="conversations")
+    channel: Mapped[Channel] = relationship(back_populates="conversations")
+    messages: Mapped[list[Message]] = relationship(back_populates="conversation")
 
 
 class Message(Base, UUIDPrimaryKey):
@@ -54,12 +54,10 @@ class Message(Base, UUIDPrimaryKey):
     tokens_used: Mapped[int | None] = mapped_column(Integer)
     cost_usd: Mapped[float | None] = mapped_column(Float)
     meta_info: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
-    conversation: Mapped["Conversation"] = relationship(back_populates="messages")
-    attachments: Mapped[list["MessageAttachment"]] = relationship(back_populates="message")
+    conversation: Mapped[Conversation] = relationship(back_populates="messages")
+    attachments: Mapped[list[MessageAttachment]] = relationship(back_populates="message")
 
 
 class MessageAttachment(Base, UUIDPrimaryKey):
@@ -75,8 +73,6 @@ class MessageAttachment(Base, UUIDPrimaryKey):
     file_url: Mapped[str] = mapped_column(Text, nullable=False)
     file_size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
     mime_type: Mapped[str] = mapped_column(String, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
-    message: Mapped["Message"] = relationship(back_populates="attachments")
+    message: Mapped[Message] = relationship(back_populates="attachments")

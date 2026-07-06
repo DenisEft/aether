@@ -7,7 +7,7 @@ import uuid
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 
-from app.core.deps import DBDep, CurrentActiveUser
+from app.core.deps import CurrentActiveUser, DBDep
 from app.models.channels import Channel
 from app.schemas.channels import (
     ChannelCreate,
@@ -47,7 +47,9 @@ async def create_channel(
     channel = Channel(
         tenant_id=current_user.tenant_id,
         display_name=body.display_name,
-        channel_type=body.channel_type.value if hasattr(body.channel_type, "value") else body.channel_type,
+        channel_type=body.channel_type.value
+        if hasattr(body.channel_type, "value")
+        else body.channel_type,
         config=body.config,
         priority=body.priority,
     )
@@ -165,8 +167,9 @@ async def test_channel(
 # === Channel Lifecycle (WebSocket/Polling) ===
 
 from pydantic import BaseModel
-from app.channels.router import channel_router
+
 from app.channels.base import ChannelConfig
+from app.channels.router import channel_router
 
 
 class ChannelStartRequest(BaseModel):

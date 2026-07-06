@@ -154,7 +154,7 @@ async def signup(request: Request, body: SignupRequest, db: DBDep) -> dict:  # n
     # Provision the tenant
     provisioning_service = TenantProvisioningService(db)
     try:
-        provision_result = await provisioning_service.provision_tenant(tenant.id)
+        await provisioning_service.provision_tenant(tenant.id)
     except Exception as e:
         logger.error(f"Failed to provision tenant {tenant.id}: {e}")
         # We could rollback here if needed, but tenant already exists
@@ -280,7 +280,7 @@ async def verify_magic_link(
     result = await db.execute(
         select(MagicLink).where(
             MagicLink.token_hash == hashlib.sha256(body.token.encode()).hexdigest(),
-            MagicLink.is_used == False,
+            not MagicLink.is_used,
             MagicLink.expires_at > datetime.now(UTC),
         )
     )
@@ -330,7 +330,7 @@ async def refresh_token(request: Request, body: RefreshRequest, db: DBDep) -> To
         select(RefreshToken).where(
             RefreshToken.user_id == user_id,
             RefreshToken.token_hash == token_hash,
-            RefreshToken.is_revoked == False,
+            not RefreshToken.is_revoked,
         )
     )
     old_rt = result.scalar_one_or_none()
@@ -363,7 +363,7 @@ async def logout(
             select(RefreshToken).where(
                 RefreshToken.user_id == current_user.id,
                 RefreshToken.token_hash == token_hash,
-                RefreshToken.is_revoked == False,
+                not RefreshToken.is_revoked,
             )
         )
         rt = result.scalar_one_or_none()
@@ -703,7 +703,7 @@ async def logout_all(
     result = await db.execute(
         select(RefreshToken).where(
             RefreshToken.user_id == current_user.id,
-            RefreshToken.is_revoked == False,
+            not RefreshToken.is_revoked,
         )  # noqa: E712
     )
     tokens = result.scalars().all()
@@ -746,7 +746,7 @@ async def change_password(
     result = await db.execute(
         select(RefreshToken).where(
             RefreshToken.user_id == current_user.id,
-            RefreshToken.is_revoked == False,
+            not RefreshToken.is_revoked,
         )  # noqa: E712
     )
     for rt in result.scalars().all():
@@ -872,7 +872,7 @@ async def list_api_keys(db: DBDep, current_user: CurrentActiveUser) -> list[ApiK
         select(ApiKey)
         .where(
             ApiKey.user_id == current_user.id,
-            ApiKey.is_revoked == False,
+            not ApiKey.is_revoked,
         )
         .order_by(ApiKey.created_at.desc())
     )
@@ -1004,7 +1004,7 @@ async def delete_me(
     result = await db.execute(
         select(RefreshToken).where(
             RefreshToken.user_id == current_user.id,
-            RefreshToken.is_revoked == False,
+            not RefreshToken.is_revoked,
         )
     )
     for rt in result.scalars().all():
@@ -1014,7 +1014,7 @@ async def delete_me(
     result = await db.execute(
         select(ApiKey).where(
             ApiKey.user_id == current_user.id,
-            ApiKey.is_revoked == False,
+            not ApiKey.is_revoked,
         )
     )
     for ak in result.scalars().all():

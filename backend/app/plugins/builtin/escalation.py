@@ -1,14 +1,14 @@
 """EscalationPlugin — transfers conversation to a human operator."""
 
 from app.plugins.base import (
+    Action,
     BaseServicePlugin,
     Intent,
     PluginContext,
+    PluginHealth,
     PluginManifest,
     PluginResult,
     PluginStatus,
-    PluginHealth,
-    Action,
 )
 
 
@@ -38,7 +38,9 @@ class EscalationPlugin(BaseServicePlugin):
                         "reason": reason,
                         "priority": "high" if intent.confidence > 0.8 else "normal",
                         "summary": intent.raw_message[:200],
-                        "conversation_id": str(context.conversation_id) if context.conversation_id else None,
+                        "conversation_id": str(context.conversation_id)
+                        if context.conversation_id
+                        else None,
                         "user_id": str(context.user_id) if context.user_id else None,
                     },
                 )

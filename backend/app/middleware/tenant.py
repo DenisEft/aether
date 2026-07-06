@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-import contextlib
 from contextvars import ContextVar
 from typing import Any
 
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response
-
-from app.database import async_session_factory
 
 # Per-request tenant context variable.
 _current_tenant_id: ContextVar[str | None] = ContextVar("tenant_id", default=None)
@@ -24,9 +21,7 @@ class TenantContextMiddleware(BaseHTTPMiddleware):
     DB session so RLS policies and triggers can reference it.
     """
 
-    async def dispatch(
-        self, request: Request, call_next: RequestResponseEndpoint
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         tenant_id = request.headers.get("X-Tenant-ID")
         _current_tenant_id.set(tenant_id)
 
@@ -41,9 +36,7 @@ class TenantContextMiddleware(BaseHTTPMiddleware):
         tid = _current_tenant_id.get()
         if tid is not None:
             async with session.begin():
-                await session.execute(
-                    "SET LOCAL app.current_tenant_id TO :tid", {"tid": tid}
-                )
+                await session.execute("SET LOCAL app.current_tenant_id TO :tid", {"tid": tid})
 
 
 def get_current_tenant_id() -> str | None:

@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import uuid
 from datetime import datetime
+import uuid
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKey, utcnow
@@ -25,7 +25,7 @@ class ServiceDefinition(Base, UUIDPrimaryKey, TimestampMixin):
     capabilities: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
     config_schema: Mapped[dict] = mapped_column(JSONB, default=dict)
 
-    instances: Mapped[list["ServiceInstance"]] = relationship(back_populates="service_definition")
+    instances: Mapped[list[ServiceInstance]] = relationship(back_populates="service_definition")
 
 
 class ServiceInstance(Base, UUIDPrimaryKey):
@@ -35,18 +35,18 @@ class ServiceInstance(Base, UUIDPrimaryKey):
         UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
     )
     service_definition_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("service_definitions.id", ondelete="CASCADE"), nullable=False
+        UUID(as_uuid=True),
+        ForeignKey("service_definitions.id", ondelete="CASCADE"),
+        nullable=False,
     )
     config: Mapped[dict] = mapped_column(JSONB, default=dict)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    installed_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
+    installed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow
     )
 
-    service_definition: Mapped["ServiceDefinition"] = relationship(back_populates="instances")
+    service_definition: Mapped[ServiceDefinition] = relationship(back_populates="instances")
 
 
 class ServiceBinding(Base, UUIDPrimaryKey):
@@ -62,9 +62,7 @@ class ServiceBinding(Base, UUIDPrimaryKey):
         UUID(as_uuid=True), ForeignKey("channels.id", ondelete="SET NULL")
     )
     priority: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class ServiceExecution(Base, UUIDPrimaryKey):
@@ -87,6 +85,4 @@ class ServiceExecution(Base, UUIDPrimaryKey):
     tokens_used: Mapped[int | None] = mapped_column(Integer)
     cost_usd: Mapped[float | None] = mapped_column
     error_message: Mapped[str | None] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

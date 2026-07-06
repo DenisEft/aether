@@ -7,7 +7,7 @@ import uuid
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import select
 
-from app.core.deps import DBDep, CurrentActiveUser, CurrentSuperuser
+from app.core.deps import CurrentActiveUser, CurrentSuperuser, DBDep
 from app.models.services import (
     ServiceBinding,
     ServiceDefinition,
@@ -35,6 +35,7 @@ router = APIRouter(tags=["services"])
 # ─────────────────────────────────────────────────────────────
 # SERVICE DEFINITIONS (global — superuser manages, active user reads)
 # ─────────────────────────────────────────────────────────────
+
 
 @router.get("/services/definitions", response_model=list[ServiceDefinitionResponse])
 async def list_service_definitions(
@@ -86,7 +87,9 @@ async def get_service_definition(
     )
     svc = result.scalar_one_or_none()
     if svc is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service definition not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Service definition not found"
+        )
     return ServiceDefinitionResponse.model_validate(svc)
 
 
@@ -103,7 +106,9 @@ async def update_service_definition(
     )
     svc = result.scalar_one_or_none()
     if svc is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service definition not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Service definition not found"
+        )
 
     if body.display_name is not None:
         svc.display_name = body.display_name
@@ -137,7 +142,9 @@ async def delete_service_definition(
     )
     svc = result.scalar_one_or_none()
     if svc is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service definition not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Service definition not found"
+        )
 
     await db.delete(svc)
     await db.commit()
@@ -147,6 +154,7 @@ async def delete_service_definition(
 # ─────────────────────────────────────────────────────────────
 # SERVICE INSTANCES (tenant-scoped)
 # ─────────────────────────────────────────────────────────────
+
 
 @router.get("/services/instances", response_model=list[ServiceInstanceResponse])
 async def list_service_instances(
@@ -196,7 +204,9 @@ async def get_service_instance(
     )
     instance = result.scalar_one_or_none()
     if instance is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service instance not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Service instance not found"
+        )
     return ServiceInstanceResponse.model_validate(instance)
 
 
@@ -216,7 +226,9 @@ async def update_service_instance(
     )
     instance = result.scalar_one_or_none()
     if instance is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service instance not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Service instance not found"
+        )
 
     if body.config is not None:
         instance.config = body.config
@@ -243,7 +255,9 @@ async def delete_service_instance(
     )
     instance = result.scalar_one_or_none()
     if instance is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service instance not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Service instance not found"
+        )
 
     await db.delete(instance)
     await db.commit()
@@ -253,6 +267,7 @@ async def delete_service_instance(
 # ─────────────────────────────────────────────────────────────
 # SERVICE BINDINGS (tenant-scoped)
 # ─────────────────────────────────────────────────────────────
+
 
 @router.get("/services/bindings", response_model=list[ServiceBindingResponse])
 async def list_service_bindings(
@@ -302,7 +317,9 @@ async def get_service_binding(
     )
     binding = result.scalar_one_or_none()
     if binding is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service binding not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Service binding not found"
+        )
     return ServiceBindingResponse.model_validate(binding)
 
 
@@ -322,7 +339,9 @@ async def update_service_binding(
     )
     binding = result.scalar_one_or_none()
     if binding is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service binding not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Service binding not found"
+        )
 
     if body.channel_id is not None:
         binding.channel_id = body.channel_id
@@ -349,7 +368,9 @@ async def delete_service_binding(
     )
     binding = result.scalar_one_or_none()
     if binding is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service binding not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Service binding not found"
+        )
 
     await db.delete(binding)
     await db.commit()
@@ -359,6 +380,7 @@ async def delete_service_binding(
 # ─────────────────────────────────────────────────────────────
 # SERVICE EXECUTIONS (tenant-scoped)
 # ─────────────────────────────────────────────────────────────
+
 
 @router.get("/services/executions", response_model=list[ServiceExecutionResponse])
 async def list_service_executions(
@@ -417,7 +439,9 @@ async def get_service_execution(
     )
     execution = result.scalar_one_or_none()
     if execution is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service execution not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Service execution not found"
+        )
     return ServiceExecutionResponse.model_validate(execution)
 
 
@@ -437,7 +461,9 @@ async def update_service_execution(
     )
     execution = result.scalar_one_or_none()
     if execution is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service execution not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Service execution not found"
+        )
 
     if body.result is not None:
         execution.result = body.result

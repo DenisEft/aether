@@ -8,11 +8,11 @@ Centralized service for:
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 import logging
-from datetime import datetime, timezone, timedelta
 from uuid import UUID
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.billing import Subscription, SubscriptionPlan, UsageRecord
@@ -23,6 +23,7 @@ logger = logging.getLogger("aether.billing")
 
 class QuotaExceededError(Exception):
     """Raised when a tenant exceeds their plan limits."""
+
     def __init__(self, metric: str, limit: float, current: float):
         self.metric = metric
         self.limit = limit
@@ -69,9 +70,7 @@ class BillingService:
 
     # ── Quota checks ─────────────────────────────────────────
 
-    async def check_quota(
-        self, tenant_id: UUID, metric: str, amount: float = 1.0
-    ) -> None:
+    async def check_quota(self, tenant_id: UUID, metric: str, amount: float = 1.0) -> None:
         """Check if a tenant has quota for a given metric. Raises QuotaExceededError.
 
         Args:
@@ -112,11 +111,10 @@ class BillingService:
 
     async def get_current_usage(self, tenant_id: UUID, metric: str) -> float:
         """Get current usage for a metric in the current billing period (month)."""
-        period_start = datetime.now(timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        period_start = datetime.now(UTC).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
         result = await self._session.execute(
-            select(func.coalesce(func.sum(UsageRecord.value), 0.0))
-            .where(
+            select(func.coalesce(func.sum(UsageRecord.value), 0.0)).where(
                 UsageRecord.tenant_id == tenant_id,
                 UsageRecord.metric == metric,
                 UsageRecord.recorded_at >= period_start,
@@ -179,8 +177,16 @@ class BillingService:
 
         # All three records share the same transaction
         await self.record_usage(tenant_id, "tokens", float(total), metadata=metadata, commit=False)
-        await self.record_usage(tenant_id, "prompt_tokens", float(prompt_tokens), metadata=metadata, commit=False)
-        await self.record_usage(tenant_id, "completion_tokens", float(completion_tokens), metadata=metadata, commit=False)
+        await self.record_usage(
+            tenant_id, "prompt_tokens", float(prompt_tokens), metadata=metadata, commit=False
+        )
+        await self.record_usage(
+            tenant_id,
+            "completion_tokens",
+            float(completion_tokens),
+            metadata=metadata,
+            commit=False,
+        )
 
         if commit:
             await self._session.commit()
@@ -236,7 +242,9 @@ class BillingService:
             summary[metric] = {
                 "used": current,
                 "limit": limits.get(limit_key, 0),
-                "remaining": max(0, limits.get(limit_key, 0) - current) if limits.get(limit_key, 0) > 0 else float("inf"),
+                "remaining": max(0, limits.get(limit_key, 0) - current)
+                if limits.get(limit_key, 0) > 0
+                else float("inf"),
             }
 
         return summary

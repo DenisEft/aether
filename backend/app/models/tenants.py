@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
+import uuid
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from typing import TYPE_CHECKING
 
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKey, utcnow
 
@@ -31,11 +31,11 @@ class Tenant(Base, UUIDPrimaryKey, TimestampMixin):
     settings: Mapped[dict] = mapped_column(JSONB, default=dict)
 
     # Relationships
-    users: Mapped[list["User"]] = relationship(back_populates="tenant")
-    organisations: Mapped[list["Organisation"]] = relationship(back_populates="tenant")
-    channels: Mapped[list["Channel"]] = relationship(back_populates="tenant")
-    conversations: Mapped[list["Conversation"]] = relationship(back_populates="tenant")
-    documents: Mapped[list["Document"]] = relationship(back_populates="tenant")
+    users: Mapped[list[User]] = relationship(back_populates="tenant")
+    organisations: Mapped[list[Organisation]] = relationship(back_populates="tenant")
+    channels: Mapped[list[Channel]] = relationship(back_populates="tenant")
+    conversations: Mapped[list[Conversation]] = relationship(back_populates="tenant")
+    documents: Mapped[list[Document]] = relationship(back_populates="tenant")
 
 
 class TenantConfig(Base, UUIDPrimaryKey, TimestampMixin):
@@ -49,7 +49,7 @@ class TenantConfig(Base, UUIDPrimaryKey, TimestampMixin):
     description: Mapped[str | None] = mapped_column(String)
     updated_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
 
-    tenant: Mapped["Tenant"] = relationship()
+    tenant: Mapped[Tenant] = relationship()
 
 
 class TenantFeature(Base, UUIDPrimaryKey):
@@ -61,9 +61,7 @@ class TenantFeature(Base, UUIDPrimaryKey):
     feature_key: Mapped[str] = mapped_column(String, nullable=False)
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     config: Mapped[dict] = mapped_column(JSONB, default=dict)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class TenantLimit(Base, UUIDPrimaryKey):

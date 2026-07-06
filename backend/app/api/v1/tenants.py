@@ -7,7 +7,7 @@ import uuid
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 
-from app.core.deps import DBDep, CurrentSuperuser
+from app.core.deps import CurrentSuperuser, DBDep
 from app.models.tenants import (
     Tenant,
     TenantConfig,
@@ -40,15 +40,14 @@ router = APIRouter(tags=["tenants"])
 # TENANTS (superuser only)
 # ─────────────────────────────────────────────────────────────
 
+
 @router.get("/tenants", response_model=list[TenantResponse])
 async def list_tenants(
     db: DBDep,
     current_user: CurrentSuperuser,
 ) -> list[TenantResponse]:
     """List all tenants (superuser only)."""
-    result = await db.execute(
-        select(Tenant).order_by(Tenant.name)
-    )
+    result = await db.execute(select(Tenant).order_by(Tenant.name))
     return [TenantResponse.model_validate(t) for t in result.scalars().all()]
 
 
@@ -145,6 +144,7 @@ async def delete_tenant(
 # TENANT CONFIGS (superuser only)
 # ─────────────────────────────────────────────────────────────
 
+
 @router.get("/tenants/{tenant_id}/configs", response_model=list[TenantConfigResponse])
 async def list_tenant_configs(
     tenant_id: uuid.UUID,
@@ -153,9 +153,7 @@ async def list_tenant_configs(
 ) -> list[TenantConfigResponse]:
     """List configs for a tenant."""
     result = await db.execute(
-        select(TenantConfig)
-        .where(TenantConfig.tenant_id == tenant_id)
-        .order_by(TenantConfig.key)
+        select(TenantConfig).where(TenantConfig.tenant_id == tenant_id).order_by(TenantConfig.key)
     )
     return [TenantConfigResponse.model_validate(c) for c in result.scalars().all()]
 
@@ -238,6 +236,7 @@ async def delete_tenant_config(
 # TENANT FEATURES (superuser only)
 # ─────────────────────────────────────────────────────────────
 
+
 @router.get("/tenants/{tenant_id}/features", response_model=list[TenantFeatureResponse])
 async def list_tenant_features(
     tenant_id: uuid.UUID,
@@ -253,7 +252,9 @@ async def list_tenant_features(
     return [TenantFeatureResponse.model_validate(f) for f in result.scalars().all()]
 
 
-@router.post("/tenants/{tenant_id}/features", response_model=TenantFeatureResponse, status_code=201)
+@router.post(
+    "/tenants/{tenant_id}/features", response_model=TenantFeatureResponse, status_code=201
+)
 async def toggle_tenant_feature(
     tenant_id: uuid.UUID,
     body: TenantFeatureCreate,
@@ -329,6 +330,7 @@ async def delete_tenant_feature(
 # TENANT LIMITS (superuser only)
 # ─────────────────────────────────────────────────────────────
 
+
 @router.get("/tenants/{tenant_id}/limits", response_model=list[TenantLimitResponse])
 async def list_tenant_limits(
     tenant_id: uuid.UUID,
@@ -399,6 +401,7 @@ async def update_tenant_limit(
 # ─────────────────────────────────────────────────────────────
 # TENANT DOMAINS (superuser only)
 # ─────────────────────────────────────────────────────────────
+
 
 @router.get("/tenants/{tenant_id}/domains", response_model=list[TenantDomainResponse])
 async def list_tenant_domains(

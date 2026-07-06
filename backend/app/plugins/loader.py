@@ -5,15 +5,14 @@ from __future__ import annotations
 import importlib
 import json
 import logging
-import os
 from pathlib import Path
 from typing import Any
 
 from app.plugins.base import (
     BaseServicePlugin,
+    Capability,
     PluginManifest,
     PluginPermission,
-    Capability,
 )
 from app.plugins.prompt_driver import PromptDrivenPlugin
 from app.plugins.registry import PluginRegistry, get_registry
@@ -113,16 +112,18 @@ class PluginLoader:
         main_file = plugin_dir / "plugin.py"
         if main_file.exists():
             # Python plugin — import dynamically
-            spec = importlib.util.spec_from_file_location(
-                f"plugin_{manifest.id}", main_file
-            )
+            spec = importlib.util.spec_from_file_location(f"plugin_{manifest.id}", main_file)
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
 
             # Find plugin class
             for attr_name in dir(module):
                 attr = getattr(module, attr_name)
-                if isinstance(attr, type) and issubclass(attr, BaseServicePlugin) and attr is not BaseServicePlugin:
+                if (
+                    isinstance(attr, type)
+                    and issubclass(attr, BaseServicePlugin)
+                    and attr is not BaseServicePlugin
+                ):
                     return attr(manifest=manifest)
 
             raise ValueError(f"No BaseServicePlugin found in {main_file}")
@@ -145,6 +146,7 @@ class PluginLoader:
     async def load_from_db(self, session) -> list[BaseServicePlugin]:
         """Load plugins from ServiceDefinition entries in the database."""
         from sqlalchemy import select
+
         from app.models.services import ServiceDefinition
 
         plugins = []
@@ -182,9 +184,7 @@ class PluginLoader:
                 await self.registry.activate(manifest.id)
                 plugins.append(plugin)
             except Exception as e:
-                logger.exception(
-                    f"Failed to load DB plugin {definition.plugin_id}: {e}"
-                )
+                logger.exception(f"Failed to load DB plugin {definition.plugin_id}: {e}")
 
         return plugins
 
@@ -246,6 +246,7 @@ class PluginLoader:
     def _parse_tool_definition(data: dict[str, Any]) -> Any:
         """Parse tool definition from JSON."""
         from app.plugins.base import ToolDefinition
+
         return ToolDefinition(
             name=data["name"],
             description=data.get("description", ""),

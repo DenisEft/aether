@@ -4,10 +4,10 @@ from app.plugins.base import (
     BaseServicePlugin,
     Intent,
     PluginContext,
+    PluginHealth,
     PluginManifest,
     PluginResult,
     PluginStatus,
-    PluginHealth,
 )
 
 

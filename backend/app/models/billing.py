@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-import uuid
 from datetime import date, datetime
+import uuid
 
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, String, Text, JSON
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy import JSON, Boolean, Date, DateTime, Float, ForeignKey, String, Text
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKey, utcnow
-from app.models.enums import SubscriptionStatus, InvoiceStatus, UsagePeriod
+from app.models.enums import InvoiceStatus, SubscriptionStatus, UsagePeriod
 
 
 class SubscriptionPlan(Base, UUIDPrimaryKey):
@@ -25,12 +25,8 @@ class SubscriptionPlan(Base, UUIDPrimaryKey):
     limits: Mapped[dict] = mapped_column(JSONB, default=dict)
     is_public: Mapped[bool] = mapped_column(Boolean, default=True)
     sort_order: Mapped[int] = mapped_column(default=0)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class Subscription(Base, UUIDPrimaryKey, TimestampMixin):
@@ -39,18 +35,18 @@ class Subscription(Base, UUIDPrimaryKey, TimestampMixin):
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
     )
-    plan_id: Mapped[str] = mapped_column(String, ForeignKey("subscription_plans.id"), nullable=False)
+    plan_id: Mapped[str] = mapped_column(
+        String, ForeignKey("subscription_plans.id"), nullable=False
+    )
     status: Mapped[SubscriptionStatus] = mapped_column(String, default=SubscriptionStatus.active)
     trial_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     trial_ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    current_period_start: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
+    current_period_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     current_period_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     auto_renew: Mapped[bool] = mapped_column(Boolean, default=True)
     payment_method_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
 
-    plan: Mapped["SubscriptionPlan"] = relationship()
+    plan: Mapped[SubscriptionPlan] = relationship()
 
 
 class Invoice(Base, UUIDPrimaryKey):
@@ -68,9 +64,7 @@ class Invoice(Base, UUIDPrimaryKey):
     due_date: Mapped[date] = mapped_column(Date, nullable=False)
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     invoice_pdf_url: Mapped[str | None] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class UsageRecord(Base, UUIDPrimaryKey):
@@ -82,9 +76,7 @@ class UsageRecord(Base, UUIDPrimaryKey):
     metric: Mapped[str] = mapped_column(String, nullable=False)
     value: Mapped[float] = mapped_column(Float, default=0.0)
     period: Mapped[UsagePeriod] = mapped_column(String, default=UsagePeriod.daily)
-    recorded_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class PaymentMethod(Base, UUIDPrimaryKey):
@@ -98,6 +90,4 @@ class PaymentMethod(Base, UUIDPrimaryKey):
     last_four: Mapped[str | None] = mapped_column(String)
     card_brand: Mapped[str | None] = mapped_column(String)
     is_default: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

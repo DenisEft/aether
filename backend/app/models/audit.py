@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-import uuid
 from datetime import datetime
+import uuid
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.models.base import Base, TimestampMixin, UUIDPrimaryKey, utcnow
+from app.models.base import Base, UUIDPrimaryKey, utcnow
 
 
 class AuditLog(Base, UUIDPrimaryKey):
@@ -25,9 +25,7 @@ class AuditLog(Base, UUIDPrimaryKey):
     changes: Mapped[dict | None] = mapped_column(JSONB)
     ip_address: Mapped[str | None] = mapped_column(String)
     user_agent: Mapped[str | None] = mapped_column(String)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class ApiCallLog(Base, UUIDPrimaryKey):
@@ -46,6 +44,4 @@ class ApiCallLog(Base, UUIDPrimaryKey):
     response_body_size: Mapped[int | None] = mapped_column(Integer)
     user_agent: Mapped[str | None] = mapped_column(String)
     ip_address: Mapped[str | None] = mapped_column(String)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import asyncio
-import logging
 from abc import ABC, abstractmethod
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import AsyncGenerator, Optional, List
+import logging
 
 __all__ = [
     "BaseDriver",
@@ -18,7 +17,7 @@ __all__ = [
     "InferenceResponse",
     "EmbeddingRequest",
     "EmbeddingResponse",
-    "DriverStatus"
+    "DriverStatus",
 ]
 
 logger = logging.getLogger("aether.ai.drivers")
@@ -26,6 +25,7 @@ logger = logging.getLogger("aether.ai.drivers")
 
 class DriverStatus(str, Enum):
     """Driver status enumeration."""
+
     ONLINE = "online"
     DEGRADED = "degraded"
     RATE_LIMITED = "rate_limited"
@@ -34,6 +34,7 @@ class DriverStatus(str, Enum):
 
 class DriverCapability(str, Enum):
     """Driver capability enumeration."""
+
     CHAT = "chat"
     COMPLETION = "completion"
     EMBEDDING = "embedding"
@@ -44,6 +45,7 @@ class DriverCapability(str, Enum):
 @dataclass
 class DriverHealth:
     """Driver health information."""
+
     status: DriverStatus
     message: str = ""
     latency_ms: float = 0.0
@@ -53,6 +55,7 @@ class DriverHealth:
 @dataclass
 class InferenceRequest:
     """Unified inference request structure."""
+
     messages: list[dict]  # [{"role": "user"/"assistant"/"system", "content": "..."}]
     tenant_id: str | None = None
     model: str | None = None
@@ -68,11 +71,14 @@ class InferenceRequest:
 @dataclass
 class InferenceResponse:
     """Unified inference response structure."""
+
     model: str
     driver_type: str
     content: str
     finish_reason: str = "stop"
-    usage: dict = field(default_factory=dict)  # {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+    usage: dict = field(
+        default_factory=dict
+    )  # {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
     latency_ms: float = 0.0
     metadata: dict = field(default_factory=dict)
     cost_estimate_usd: float = 0.0
@@ -81,6 +87,7 @@ class InferenceResponse:
 @dataclass
 class EmbeddingRequest:
     """Unified embedding request structure."""
+
     texts: list[str]
     tenant_id: str | None = None
     model: str | None = None
@@ -92,6 +99,7 @@ class EmbeddingRequest:
 @dataclass
 class EmbeddingResponse:
     """Unified embedding response structure."""
+
     embeddings: list[list[float]]
     model: str
     driver_type: str
@@ -102,6 +110,7 @@ class EmbeddingResponse:
 @dataclass
 class DriverMetrics:
     """Driver metrics."""
+
     model: str
     total_requests: int = 0
     total_failed: int = 0
@@ -110,7 +119,7 @@ class DriverMetrics:
     cost_usd: float = 0.0
     last_used_at: float | None = None
     success_rate: float = 1.0
-    
+
     @property
     def success_rate(self) -> float:
         if self.total_requests == 0:
@@ -190,8 +199,7 @@ class BaseDriver(ABC):
         self._metrics.total_tokens += tokens
         self._metrics.cost_usd += cost_usd
         # Rolling average
-        self._metrics.avg_latency_ms = (
-            (self._metrics.avg_latency_ms * n + latency_ms) / (n + 1)
-        )
+        self._metrics.avg_latency_ms = (self._metrics.avg_latency_ms * n + latency_ms) / (n + 1)
         from time import time
+
         self._metrics.last_used_at = time()

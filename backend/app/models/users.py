@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import uuid
 from datetime import datetime
+import uuid
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
@@ -33,10 +33,10 @@ class User(Base, UUIDPrimaryKey, TimestampMixin):
     locale: Mapped[str] = mapped_column(String, default="ru")
 
     # Relationships
-    tenant: Mapped["Tenant"] = relationship(back_populates="users")
-    memberships: Mapped[list["Membership"]] = relationship(back_populates="user")
-    sessions: Mapped[list["Session"]] = relationship(back_populates="user")
-    api_keys: Mapped[list["ApiKey"]] = relationship(back_populates="user")
+    tenant: Mapped[Tenant] = relationship(back_populates="users")
+    memberships: Mapped[list[Membership]] = relationship(back_populates="user")
+    sessions: Mapped[list[Session]] = relationship(back_populates="user")
+    api_keys: Mapped[list[ApiKey]] = relationship(back_populates="user")
 
 
 class Role(Base, UUIDPrimaryKey):
@@ -48,9 +48,7 @@ class Role(Base, UUIDPrimaryKey):
     name: Mapped[str] = mapped_column(String, nullable=False)
     permissions: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class Membership(Base, UUIDPrimaryKey):
@@ -71,10 +69,8 @@ class Membership(Base, UUIDPrimaryKey):
     role: Mapped[str] = mapped_column(String, default="member")
     invited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     # Relationships
-    user: Mapped["User"] = relationship(back_populates="memberships")
-    organisation: Mapped["Organisation"] = relationship(back_populates="memberships")
+    user: Mapped[User] = relationship(back_populates="memberships")
+    organisation: Mapped[Organisation] = relationship(back_populates="memberships")

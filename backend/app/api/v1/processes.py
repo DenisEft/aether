@@ -150,7 +150,6 @@ async def transition_process(
     db.add(transition)
 
     # Update instance
-    old_block = instance.current_block_key
     instance.current_block_key = body.to_block
 
     # Check if target is end block
@@ -324,7 +323,7 @@ async def generate_document(
                 filled[ph] = block_values.get(ph, f"{{{ph}}}")
 
             # Also fill from all field_values
-            for bk, fields in instance.field_values.items():
+            for _bk, fields in instance.field_values.items():
                 for fk, fv in fields.items():
                     if fk not in filled:
                         filled[fk] = fv
@@ -341,7 +340,7 @@ async def generate_document(
     # Log
     log_entry = {
         "action": "generate_doc",
-        "blocks": list(set(g["block_key"] for g in generated)),
+        "blocks": list({g["block_key"] for g in generated}),
         "timestamp": datetime.now(UTC).isoformat(),
         "user": current_user.email,
     }

@@ -7,12 +7,14 @@ import uuid
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 
-from app.core.deps import DBDep, CurrentActiveUser
+from app.core.deps import CurrentActiveUser, DBDep
 from app.models.organisations import Organisation
 from app.models.users import Membership, Role, User
 
 
-async def _verify_org_membership(org_id: uuid.UUID, db: DBDep, current_user: CurrentActiveUser) -> Membership | None:
+async def _verify_org_membership(
+    org_id: uuid.UUID, db: DBDep, current_user: CurrentActiveUser
+) -> Membership | None:
     """Verify user is a member of the organisation. Returns Membership or None."""
     result = await db.execute(
         select(Membership).where(
@@ -28,6 +30,8 @@ async def _verify_org_membership(org_id: uuid.UUID, db: DBDep, current_user: Cur
             detail="You are not a member of this organisation",
         )
     return membership
+
+
 from app.schemas.organisations import (
     ChangeRoleRequest,
     InviteCreateRequest,
@@ -45,10 +49,14 @@ router = APIRouter(tags=["organisations"])
 
 
 @router.get("/organisations", response_model=list[OrganisationResponse])
-async def list_organisations(db: DBDep, current_user: CurrentActiveUser) -> list[OrganisationResponse]:
+async def list_organisations(
+    db: DBDep, current_user: CurrentActiveUser
+) -> list[OrganisationResponse]:
     """List all organisations in the current tenant."""
     result = await db.execute(
-        select(Organisation).where(Organisation.tenant_id == current_user.tenant_id).order_by(Organisation.name)
+        select(Organisation)
+        .where(Organisation.tenant_id == current_user.tenant_id)
+        .order_by(Organisation.name)
     )
     orgs = result.scalars().all()
     return [OrganisationResponse.model_validate(o) for o in orgs]
@@ -74,7 +82,10 @@ async def create_organisation(
         )
     )
     if result.scalar_one_or_none():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Organisation with slug '{slug}' already exists")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Organisation with slug '{slug}' already exists",
+        )
 
     org = Organisation(
         tenant_id=current_user.tenant_id,
@@ -162,11 +173,11 @@ async def delete_organisation(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organisation not found")
 
     # Check members
-    member_count = await db.execute(
-        select(Membership).where(Membership.organisation_id == org_id)
-    )
+    member_count = await db.execute(select(Membership).where(Membership.organisation_id == org_id))
     if member_count.scalar_one_or_none():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Cannot delete organisation with members")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Cannot delete organisation with members"
+        )
 
     await db.delete(org)
     await db.commit()
@@ -245,7 +256,9 @@ async def invite_member(
     )
     user = user_result.scalar_one_or_none()
     if user is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found in this tenant")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found in this tenant"
+        )
 
     # Check existing membership
     existing = await db.execute(
@@ -255,7 +268,9 @@ async def invite_member(
         )
     )
     if existing.scalar_one_or_none():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User is already a member")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="User is already a member"
+        )
 
     # Find role
     role_id = None
@@ -329,7 +344,7 @@ async def change_member_role(
 ) -> dict:
     """Change a member's role."""
     # C2: verify caller membership + check role permission (admin required)
-    membership = await _verify_org_membership(org_id, db, current_user)
+    await _verify_org_membership(org_id, db, current_user)
 
     result = await db.execute(
         select(Membership).where(
@@ -348,7 +363,9 @@ async def change_member_role(
     )
     role = role_result.scalar_one_or_none()
     if role is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Role '{body.role}' not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Role '{body.role}' not found"
+        )
 
     m.role_id = role.id
     await db.commit()

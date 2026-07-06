@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-import uuid
 from datetime import datetime
+import uuid
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.enums import ExecutionResult
 
-
 # ── Service Definitions ─────────────────────────────────────
+
 
 class ServiceDefinitionCreate(BaseModel):
     plugin_id: str = Field(..., min_length=1, max_length=255)
@@ -51,6 +51,7 @@ class ServiceDefinitionResponse(BaseModel):
 
 # ── Service Instances ────────────────────────────────────────
 
+
 class ServiceInstanceCreate(BaseModel):
     service_definition_id: uuid.UUID
     config: dict = Field(default_factory=dict)
@@ -76,6 +77,7 @@ class ServiceInstanceResponse(BaseModel):
 
 # ── Service Bindings ─────────────────────────────────────────
 
+
 class ServiceBindingCreate(BaseModel):
     service_instance_id: uuid.UUID
     channel_id: uuid.UUID | None = None
@@ -99,6 +101,7 @@ class ServiceBindingResponse(BaseModel):
 
 
 # ── Service Executions ───────────────────────────────────────
+
 
 class ServiceExecutionCreate(BaseModel):
     service_instance_id: uuid.UUID | None = None

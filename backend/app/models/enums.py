@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import enum
+from enum import StrEnum
 
 
-class ChannelTypeEnum(str, enum.Enum):
+class ChannelTypeEnum(StrEnum):
     telegram = "telegram"
     web_widget = "web_widget"
     email = "email"
@@ -13,19 +13,19 @@ class ChannelTypeEnum(str, enum.Enum):
     rest_api = "rest_api"
 
 
-class ConversationStatus(str, enum.Enum):
+class ConversationStatus(StrEnum):
     active = "active"
     closed = "closed"
     archived = "archived"
 
 
-class MessageRole(str, enum.Enum):
+class MessageRole(StrEnum):
     user = "user"
     assistant = "assistant"
     system = "system"
 
 
-class SubscriptionStatus(str, enum.Enum):
+class SubscriptionStatus(StrEnum):
     active = "active"
     trial = "trial"
     cancelled = "cancelled"
@@ -33,7 +33,7 @@ class SubscriptionStatus(str, enum.Enum):
     past_due = "past_due"
 
 
-class InvoiceStatus(str, enum.Enum):
+class InvoiceStatus(StrEnum):
     draft = "draft"
     open = "open"
     paid = "paid"
@@ -41,20 +41,20 @@ class InvoiceStatus(str, enum.Enum):
     past_due = "past_due"
 
 
-class CredentialTypeEnum(str, enum.Enum):
+class CredentialTypeEnum(StrEnum):
     api_key = "api_key"
     bot_token = "bot_token"
     smtp_password = "smtp_password"
     oauth_token = "oauth_token"
 
 
-class UsagePeriod(str, enum.Enum):
+class UsagePeriod(StrEnum):
     hourly = "hourly"
     daily = "daily"
     monthly = "monthly"
 
 
-class EntityValueType(str, enum.Enum):
+class EntityValueType(StrEnum):
     string = "string"
     number = "number"
     date = "date"
@@ -62,13 +62,13 @@ class EntityValueType(str, enum.Enum):
     phone = "phone"
 
 
-class ExecutionResult(str, enum.Enum):
+class ExecutionResult(StrEnum):
     success = "success"
     error = "error"
     partial = "partial"
 
 
-class DocumentType(str, enum.Enum):
+class DocumentType(StrEnum):
     order = "order"
     invoice = "invoice"
     contract = "contract"

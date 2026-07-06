@@ -3,17 +3,16 @@
 from __future__ import annotations
 
 import logging
-import time
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import settings
 from app.api.router import router as api_v1_router
 from app.api.v1.ws import router as ws_router
-from app.middleware.tenant import TenantContextMiddleware
+from app.config import settings
+from app.database import close_engine, engine
 from app.middleware.logging import RequestLoggingMiddleware
-from app.database import engine, close_engine
+from app.middleware.tenant import TenantContextMiddleware
 
 logging.basicConfig(
     level=logging.DEBUG if settings.ENVIRONMENT == "development" else logging.INFO,
@@ -52,12 +51,12 @@ async def startup() -> None:
             await conn.execute(__import__("sqlalchemy").text("SELECT 1"))
     except Exception as exc:
         logging.warning("DB connection unavailable on startup: %s", exc)
-    
+
     # Initialize AI drivers from DB config
     if settings.AI_LOCAL_DRIVER_ENABLED:
         try:
-            from app.ai.router import pool
             from app.ai import LocalDriver
+            from app.ai.router import pool
 
             local_driver = LocalDriver(
                 model_id=settings.AI_LOCAL_DRIVER_MODEL_ID,
@@ -72,7 +71,7 @@ async def startup() -> None:
             )
         except Exception as exc:
             logging.warning("Could not register local AI driver: %s", exc)
-    
+
     # Start background health checks
     try:
         await pool.start_health_checks()
@@ -85,6 +84,7 @@ async def shutdown() -> None:
     """Dispose DB connection pool and shutdown AI drivers."""
     try:
         from app.ai.router import pool
+
         await pool.shutdown_all()
     except Exception:
         pass

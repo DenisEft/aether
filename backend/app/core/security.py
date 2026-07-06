@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 import hashlib
 import secrets
-from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from pydantic import BaseModel
 
 from app.config import settings
 
@@ -30,7 +28,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 # ── JWT tokens ────────────────────────────────────────────────
 def _create_token(data: dict, expires_delta: timedelta) -> str:
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + expires_delta
+    expire = datetime.now(UTC) + expires_delta
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
@@ -87,6 +85,7 @@ def generate_mfa_secret() -> str:
 def verify_mfa_code(secret: str, code: str) -> bool:
     """Verify a TOTP code against the secret."""
     import pyotp
+
     totp = pyotp.TOTP(secret)
     return totp.verify(code, valid_window=1)
 
@@ -118,6 +117,7 @@ async def check_password_not_pwned(password: str) -> bool:
     Returns False if password IS pwned (found in breaches).
     """
     import hashlib
+
     import httpx
 
     sha1_hash = hashlib.sha1(password.encode()).hexdigest().upper()  # noqa: S324 — intentional for k-anonymity lookup

@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import AsyncGenerator, Optional
 
 
 class ChannelStatus(str, Enum):
@@ -63,7 +63,7 @@ class BaseChannel(ABC):
         ...
 
     @abstractmethod
-    async def poll_messages(self) -> AsyncGenerator["MessageContext", None]:
+    async def poll_messages(self) -> AsyncGenerator[MessageContext, None]:
         """Poll for new messages (for polling-based channels)."""
         ...
 
@@ -76,6 +76,7 @@ class BaseChannel(ABC):
 @dataclass
 class MessageContext:
     """Normalized message from any channel."""
+
     channel_type: str
     channel_id: str
     external_user_id: str

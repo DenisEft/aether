@@ -1,7 +1,7 @@
 from .. import BaseDriver
-from .openai_driver import OpenAIDriver
 from .anthropic_driver import AnthropicDriver
 from .local_driver import LocalDriver
+from .openai_driver import OpenAIDriver
 
 __all__ = ["BaseDriver", "OpenAIDriver", "AnthropicDriver", "LocalDriver"]
 
@@ -10,6 +10,7 @@ DRIVER_REGISTRY = {
     "anthropic": AnthropicDriver,
     "local": LocalDriver,
 }
+
 
 def get_driver(driver_type: str, model_id: str, **config) -> BaseDriver:
     driver_cls = DRIVER_REGISTRY.get(driver_type)

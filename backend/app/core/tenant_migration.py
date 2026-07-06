@@ -12,9 +12,8 @@ Architecture:
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Awaitable, Callable
-from typing import Any
+import logging
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -68,7 +67,9 @@ async def run_tenant_migrations(db: AsyncSession, from_version: str | None = Non
                     await migration_fn(db, tenant_id_str)
                     logger.info("Tenant migration %s applied to tenant %s", version, tenant_id_str)
                 except Exception as exc:
-                    logger.error("Tenant migration %s failed for tenant %s: %s", version, tenant_id_str, exc)
+                    logger.error(
+                        "Tenant migration %s failed for tenant %s: %s", version, tenant_id_str, exc
+                    )
                     raise
 
         await db.execute(text("RESET app.current_tenant_id"))

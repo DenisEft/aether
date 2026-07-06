@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-import asyncio
-from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 from enum import Enum
 import logging
@@ -24,7 +22,7 @@ __all__ = [
 logger = logging.getLogger("aether.ai.drivers")
 
 
-class DriverCapability(str, Enum):
+class DriverCapability(str, Enum):  # noqa: UP042
     CHAT = "chat"
     COMPLETION = "completion"
     EMBEDDING = "embedding"
@@ -98,6 +96,7 @@ class DriverMetrics:
     last_used_at: float | None = None
     success_rate: float = 1.0
 
+    @property
     @property
     def success_rate(self) -> float:
         if self.total_requests == 0:
@@ -185,7 +184,7 @@ class BaseDriver(ABC):
 
 # Export router types when available
 try:
-    from .router import InferencePool, RoutingStrategy, pool
+    from .router import InferencePool, RoutingStrategy, pool  # noqa: F401
 
     __all__.extend(["pool", "InferencePool", "RoutingStrategy"])
 except ImportError:
@@ -193,7 +192,7 @@ except ImportError:
 
 # Export manager
 try:
-    from .manager import AIManager, ai_manager
+    from .manager import AIManager, ai_manager  # noqa: F401
 
     __all__.extend(["AIManager", "ai_manager"])
 except ImportError:
@@ -201,7 +200,13 @@ except ImportError:
 
 # Export drivers
 try:
-    from .drivers import DRIVER_REGISTRY, AnthropicDriver, LocalDriver, OpenAIDriver, get_driver
+    from .drivers import (  # noqa: F401
+        DRIVER_REGISTRY,
+        AnthropicDriver,
+        LocalDriver,
+        OpenAIDriver,
+        get_driver,
+    )
 
     __all__.extend(
         ["DRIVER_REGISTRY", "get_driver", "OpenAIDriver", "AnthropicDriver", "LocalDriver"]

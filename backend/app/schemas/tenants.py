@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import uuid
 from datetime import datetime
+import uuid
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
 # ── Tenants ─────────────────────────────────────────────────
+
 
 class TenantCreate(BaseModel):
     slug: str = Field(..., min_length=2, max_length=64, pattern=r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
@@ -51,6 +51,7 @@ class TenantResponse(BaseModel):
 
 # ── Tenant Configs ───────────────────────────────────────────
 
+
 class TenantConfigCreate(BaseModel):
     key: str = Field(..., min_length=1, max_length=255)
     value: str = Field(..., min_length=1)
@@ -76,6 +77,7 @@ class TenantConfigResponse(BaseModel):
 
 # ── Tenant Features ──────────────────────────────────────────
 
+
 class TenantFeatureCreate(BaseModel):
     feature_key: str = Field(..., min_length=1, max_length=255)
     is_enabled: bool = True
@@ -99,6 +101,7 @@ class TenantFeatureResponse(BaseModel):
 
 
 # ── Tenant Limits ────────────────────────────────────────────
+
 
 class TenantLimitCreate(BaseModel):
     limit_key: str = Field(..., min_length=1, max_length=255)
@@ -125,6 +128,7 @@ class TenantLimitResponse(BaseModel):
 
 
 # ── Tenant Domains ───────────────────────────────────────────
+
 
 class TenantDomainCreate(BaseModel):
     domain: str = Field(..., min_length=1, max_length=255)

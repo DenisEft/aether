@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 import uuid
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Query, status
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 
-from app.core.deps import DBDep, CurrentActiveUser
+from app.core.deps import CurrentActiveUser, DBDep
 from app.models.conversations import Conversation, Message, MessageAttachment
 from app.models.enums import ConversationStatus
-from app.schemas.common import PaginationParams
 from app.schemas.conversations import (
     ConversationCreate,
     ConversationResponse,
@@ -63,19 +62,21 @@ async def list_conversations(
             select(func.count()).select_from(Message).where(Message.conversation_id == c.id)
         )
         count = msg_count.scalar() or 0
-        responses.append(ConversationResponse(
-            id=c.id,
-            status=c.status.value if hasattr(c.status, "value") else c.status,
-            subject=c.subject,
-            external_user_id=c.external_user_id,
-            user_id=c.user_id,
-            channel_id=c.channel_id,
-            state=c.state or {},
-            meta_info=c.meta_info or {},
-            message_count=count,
-            last_message_at=c.last_message_at,
-            created_at=c.created_at,
-        ))
+        responses.append(
+            ConversationResponse(
+                id=c.id,
+                status=c.status.value if hasattr(c.status, "value") else c.status,
+                subject=c.subject,
+                external_user_id=c.external_user_id,
+                user_id=c.user_id,
+                channel_id=c.channel_id,
+                state=c.state or {},
+                meta_info=c.meta_info or {},
+                message_count=count,
+                last_message_at=c.last_message_at,
+                created_at=c.created_at,
+            )
+        )
     return responses
 
 
@@ -275,7 +276,9 @@ async def list_messages(
 # ── POST /conversations/{conversation_id}/messages ────────────
 
 
-@router.post("/conversations/{conversation_id}/messages", response_model=MessageResponse, status_code=201)
+@router.post(
+    "/conversations/{conversation_id}/messages", response_model=MessageResponse, status_code=201
+)
 async def send_message(
     conversation_id: uuid.UUID,
     body: MessageCreate,
@@ -306,7 +309,7 @@ async def send_message(
     db.add(msg)
 
     # Update conversation's last_message_at
-    conv.last_message_at = datetime.now(timezone.utc)
+    conv.last_message_at = datetime.now(UTC)
 
     await db.commit()
     await db.refresh(msg)
@@ -329,7 +332,10 @@ async def send_message(
 # ── POST .../quick-reply ──────────────────────────────────────
 
 
-@router.post("/conversations/{conversation_id}/messages/{message_id}/quick-reply", response_model=QuickReplySuggestionsResponse)
+@router.post(
+    "/conversations/{conversation_id}/messages/{message_id}/quick-reply",
+    response_model=QuickReplySuggestionsResponse,
+)
 async def suggest_quick_replies(
     conversation_id: uuid.UUID,
     message_id: uuid.UUID,
@@ -347,9 +353,7 @@ async def suggest_quick_replies(
     if result.scalar_one_or_none() is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found")
 
-    return QuickReplySuggestionsResponse(
-        replies=["Понял", "Продолжить", "Нет, спасибо"]
-    )
+    return QuickReplySuggestionsResponse(replies=["Понял", "Продолжить", "Нет, спасибо"])
 
 
 # ── POST .../attachments ──────────────────────────────────────

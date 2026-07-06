@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import uuid
 from datetime import datetime
+import uuid
 
 from pydantic import BaseModel, ConfigDict, Field
-
 
 # ── Organisation ──────────────────────────────────────────────
 

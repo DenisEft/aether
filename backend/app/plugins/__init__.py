@@ -12,27 +12,27 @@ Usage:
 """
 
 from app.plugins.base import (
+    Action,
     BaseServicePlugin,
     Capability,
     Intent,
-    PluginResult,
-    Action,
+    PluginContext,
     PluginHealth,
     PluginManifest,
     PluginPermission,
+    PluginResult,
     PluginStatus,
-    PluginContext,
     ToolDefinition,
 )
+from app.plugins.loader import PluginLoader
 from app.plugins.prompt_driver import PromptDrivenPlugin
 from app.plugins.registry import (
+    PluginNotFoundError,
     PluginRegistry,
+    PluginValidationError,
     get_registry,
     reset_registry,
-    PluginNotFoundError,
-    PluginValidationError,
 )
-from app.plugins.loader import PluginLoader
 
 __all__ = [
     # Base classes

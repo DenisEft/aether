@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import uuid
 from datetime import datetime
+import uuid
 
 from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import UUID, BYTEA, JSONB, ARRAY, BIGINT
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.dialects.postgresql import ARRAY, BIGINT, BYTEA, JSONB, UUID
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKey, utcnow
 from app.models.enums import EntityValueType
@@ -25,9 +25,7 @@ class Intent(Base, UUIDPrimaryKey):
     category: Mapped[str] = mapped_column(String, default="other")
     is_builtin: Mapped[bool] = mapped_column(Boolean, default=False)
     plugin_ids: Mapped[list[str]] = mapped_column(JSONB, default=list)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class IntentTemplate(Base, UUIDPrimaryKey):
@@ -41,9 +39,7 @@ class IntentTemplate(Base, UUIDPrimaryKey):
     )
     example_text: Mapped[str] = mapped_column(Text, nullable=False)
     language: Mapped[str] = mapped_column(String, default="ru")
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class EntityType(Base, UUIDPrimaryKey):
@@ -58,9 +54,7 @@ class EntityType(Base, UUIDPrimaryKey):
     pattern: Mapped[str | None] = mapped_column(String)
     examples: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
     lookup_table: Mapped[str | None] = mapped_column(String)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class AIModel(Base, UUIDPrimaryKey):
@@ -76,9 +70,7 @@ class AIModel(Base, UUIDPrimaryKey):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     default_priority: Mapped[int] = mapped_column(Integer, default=0)
     config: Mapped[dict] = mapped_column(JSONB, default=dict)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class DriverConfig(Base, UUIDPrimaryKey, TimestampMixin):
@@ -106,9 +98,7 @@ class DriverMetric(Base, UUIDPrimaryKey):
     tokens_in: Mapped[int] = mapped_column(BIGINT, default=0)
     tokens_out: Mapped[int] = mapped_column(BIGINT, default=0)
     cost_usd: Mapped[float] = mapped_column(Float, default=0.0)
-    recorded_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class KnowledgeBase(Base, UUIDPrimaryKey, TimestampMixin):
@@ -140,6 +130,4 @@ class KnowledgeDocument(Base, UUIDPrimaryKey):
     chunk_count: Mapped[int] = mapped_column(Integer, default=0)
     tokens_total: Mapped[int | None] = mapped_column(Integer)
     indexed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

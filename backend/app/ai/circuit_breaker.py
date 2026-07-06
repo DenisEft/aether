@@ -7,7 +7,7 @@ from enum import Enum
 import time
 
 
-class CircuitBreakerState(str, Enum):
+class CircuitBreakerState(str, Enum):  # noqa: UP042
     """Circuit breaker states."""
 
     CLOSED = "closed"  # Normal operation
@@ -59,9 +59,7 @@ class CircuitBreaker:
 
         if self._state == CircuitBreakerState.HALF_OPEN:
             # Allow limited requests
-            if self._request_count < self.half_open_max:
-                return True
-            return False
+            return self._request_count < self.half_open_max
 
         return False
 

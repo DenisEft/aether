@@ -8,7 +8,6 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
-
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user
@@ -55,7 +54,7 @@ class DocumentResponse(BaseModel):
     model_config = {"from_attributes": True}
 
     @classmethod
-    def from_orm(cls, doc) -> "DocumentResponse":
+    def from_orm(cls, doc) -> DocumentResponse:
         return cls(
             id=doc.id,
             tenant_id=doc.tenant_id,
@@ -125,7 +124,7 @@ class VersionResponse(BaseModel):
     created_at: str
 
     @classmethod
-    def from_orm(cls, ver) -> "VersionResponse":
+    def from_orm(cls, ver) -> VersionResponse:
         return cls(
             id=ver.id,
             document_id=ver.document_id,

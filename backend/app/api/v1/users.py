@@ -5,9 +5,9 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, HTTPException, status
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 
-from app.core.deps import DBDep, CurrentActiveUser, CurrentSuperuser
+from app.core.deps import CurrentActiveUser, CurrentSuperuser, DBDep
 from app.models.users import User
 from app.schemas.common import PaginationParams
 from app.schemas.users import UserListResponse, UserProfileUpdate, UserResponse
@@ -31,7 +31,11 @@ async def list_users(
     total_count = total.scalar() or 0
 
     result = await db.execute(
-        select(User).where(where).order_by(User.created_at.desc()).offset(pagination.offset).limit(pagination.page_size)
+        select(User)
+        .where(where)
+        .order_by(User.created_at.desc())
+        .offset(pagination.offset)
+        .limit(pagination.page_size)
     )
     users = result.scalars().all()
 
@@ -74,7 +78,9 @@ async def update_user(
 ) -> UserResponse:
     """Update a user's profile. Users can only update themselves unless superuser."""
     if current_user.id != user_id and not current_user.is_superadmin:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot update another user's profile")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Cannot update another user's profile"
+        )
 
     result = await db.execute(
         select(User).where(User.id == user_id, User.tenant_id == current_user.tenant_id)

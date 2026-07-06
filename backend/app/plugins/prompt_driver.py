@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import json
 import logging
-from copy import deepcopy
 
 from app.plugins.base import (
     BaseServicePlugin,
@@ -24,8 +23,6 @@ from app.plugins.base import (
     PluginResult,
     PluginStatus,
     ToolDefinition,
-    Action,
-    Capability,
 )
 
 logger = logging.getLogger("aether.plugins.prompt_driver")
@@ -72,9 +69,7 @@ class PromptDrivenPlugin(BaseServicePlugin):
 
     # ── Intent Handling ───────────────────────────────────────
 
-    async def handle_intent(
-        self, intent: Intent, context: PluginContext
-    ) -> PluginResult:
+    async def handle_intent(self, intent: Intent, context: PluginContext) -> PluginResult:
         """Process intent by assembling prompt + calling AI engine.
 
         The actual AI call is delegated to ai_manager via the plugin context.
@@ -109,9 +104,7 @@ class PromptDrivenPlugin(BaseServicePlugin):
 
     # ── Prompt Assembly ───────────────────────────────────────
 
-    def _build_messages(
-        self, intent: Intent, context: PluginContext
-    ) -> list[dict[str, str]]:
+    def _build_messages(self, intent: Intent, context: PluginContext) -> list[dict[str, str]]:
         """Assemble AI messages: system prompt + examples + context + user message."""
         messages = [{"role": "system", "content": self._render_prompt(intent, context)}]
 
@@ -124,10 +117,12 @@ class PromptDrivenPlugin(BaseServicePlugin):
             messages.append({"role": hist_msg.get("role", "user"), "content": hist_msg["content"]})
 
         # Add current intent
-        messages.append({
-            "role": "user",
-            "content": self._format_intent_message(intent, context),
-        })
+        messages.append(
+            {
+                "role": "user",
+                "content": self._format_intent_message(intent, context),
+            }
+        )
 
         return messages
 
@@ -171,14 +166,16 @@ class PromptDrivenPlugin(BaseServicePlugin):
         """Convert ToolDefinition to OpenAI-compatible function calling format."""
         tool_defs = []
         for tool in self.get_tools():
-            tool_defs.append({
-                "type": "function",
-                "function": {
-                    "name": tool.name,
-                    "description": tool.description,
-                    "parameters": tool.parameters,
-                },
-            })
+            tool_defs.append(
+                {
+                    "type": "function",
+                    "function": {
+                        "name": tool.name,
+                        "description": tool.description,
+                        "parameters": tool.parameters,
+                    },
+                }
+            )
         return tool_defs
 
     def get_tools(self) -> list[ToolDefinition]:

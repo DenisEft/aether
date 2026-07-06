@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-import uuid
 from datetime import datetime
+import uuid
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.enums import EntityValueType
 
-
 # ── Intents ──────────────────────────────────────────────────
+
 
 class IntentCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
@@ -62,6 +62,7 @@ class IntentTemplateResponse(BaseModel):
 
 # ── Entity Types ─────────────────────────────────────────────
 
+
 class EntityTypeCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     display_name: str = Field(..., min_length=1, max_length=255)
@@ -94,6 +95,7 @@ class EntityTypeResponse(BaseModel):
 
 
 # ── AI Models ────────────────────────────────────────────────
+
 
 class AIModelCreate(BaseModel):
     model_id: str = Field(..., min_length=1, max_length=255)
@@ -131,6 +133,7 @@ class AIModelResponse(BaseModel):
 
 # ── Driver Configs ───────────────────────────────────────────
 
+
 class DriverConfigCreate(BaseModel):
     driver_type: str = Field(..., min_length=1, max_length=255)
     endpoint: str = Field(..., min_length=1)
@@ -160,6 +163,7 @@ class DriverConfigResponse(BaseModel):
 
 # ── Driver Metrics ───────────────────────────────────────────
 
+
 class DriverMetricResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -176,6 +180,7 @@ class DriverMetricResponse(BaseModel):
 
 
 # ── Knowledge Bases ──────────────────────────────────────────
+
 
 class KnowledgeBaseCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)

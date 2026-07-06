@@ -4,13 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Optional, AsyncGenerator
 
-from app.models.channels import Channel as ChannelModel
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from .base import BaseChannel, ChannelConfig, MessageContext, ChannelStatus
-from . import CHANNEL_REGISTRY, create_channel
+from . import create_channel
+from .base import BaseChannel, ChannelConfig
 
 logger = logging.getLogger("aether.channels.router")
 
@@ -70,7 +66,9 @@ class ChannelRouter:
         except Exception as e:
             logger.error(f"Poll error for {key}: {e}")
 
-    async def send_message(self, channel_type: str, channel_id: str, chat_id: str, text: str) -> dict:
+    async def send_message(
+        self, channel_type: str, channel_id: str, chat_id: str, text: str
+    ) -> dict:
         """Send a message through a specific channel."""
         key = f"{channel_type}:{channel_id}"
         channel = self._channels.get(key)

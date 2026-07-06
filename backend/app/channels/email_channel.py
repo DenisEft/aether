@@ -1,12 +1,12 @@
-from typing import Optional, AsyncGenerator
-import logging
-import email
 import asyncio
-from email.mime.text import MIMEText
+from collections.abc import AsyncGenerator
+import email
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+import logging
 
+from aioimaplib import aioimaplib
 import aiosmtplib
-from aioimaplib import IMAP4_SSL, aioimaplib
 
 from .base import BaseChannel, ChannelConfig, ChannelStatus, MessageContext
 
@@ -25,7 +25,7 @@ class EmailChannel(BaseChannel):
         self.email_address = config.config.get("email_address", "")
         self.email_password = config.config.get("email_password", "")
         self.use_tls = config.config.get("use_tls", True)
-        self._imap: Optional[aioimaplib.IMAP4_SSL] = None
+        self._imap: aioimaplib.IMAP4_SSL | None = None
         self._idle_running = False
 
     async def initialize(self) -> bool:
@@ -40,7 +40,9 @@ class EmailChannel(BaseChannel):
             await self._imap.login(self.email_address, self.email_password)
             await self._imap.select("INBOX")
             self._status = ChannelStatus.CONNECTED
-            logger.info(f"Email channel connected: {self.email_address} via IMAP {self.imap_host}:{self.imap_port}")
+            logger.info(
+                f"Email channel connected: {self.email_address} via IMAP {self.imap_host}:{self.imap_port}"
+            )
             return True
         except Exception as e:
             logger.error(f"Email channel init failed: {e}")
@@ -105,7 +107,7 @@ class EmailChannel(BaseChannel):
                 result = await self._imap.search("UNSEEN")
                 if result.result == "OK" and result.lines:
                     msg_ids = result.lines[0].decode().split()
-                    
+
                     for msg_id in msg_ids:
                         ctx = await self._fetch_message(int(msg_id))
                         if ctx:
@@ -132,7 +134,7 @@ class EmailChannel(BaseChannel):
                 except Exception:
                     pass
 
-    async def _fetch_message(self, msg_id: int) -> Optional[MessageContext]:
+    async def _fetch_message(self, msg_id: int) -> MessageContext | None:
         """Fetch and parse a single email message."""
         try:
             result = await self._imap.fetch(str(msg_id), "(RFC822)")

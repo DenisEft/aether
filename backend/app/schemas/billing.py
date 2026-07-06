@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-import uuid
 from datetime import date, datetime
+import uuid
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.enums import SubscriptionStatus, InvoiceStatus, UsagePeriod
-
+from app.models.enums import InvoiceStatus, SubscriptionStatus, UsagePeriod
 
 # ── Subscription Plans ───────────────────────────────────────
+
 
 class SubscriptionPlanCreate(BaseModel):
     id: str = Field(..., min_length=1, max_length=100)
@@ -53,6 +53,7 @@ class SubscriptionPlanResponse(BaseModel):
 
 # ── Subscriptions ────────────────────────────────────────────
 
+
 class SubscriptionCreate(BaseModel):
     plan_id: str = Field(..., min_length=1)
     trial_days: int | None = Field(None, ge=0, le=365)
@@ -84,6 +85,7 @@ class SubscriptionResponse(BaseModel):
 
 # ── Invoices ─────────────────────────────────────────────────
 
+
 class InvoiceCreate(BaseModel):
     subscription_id: uuid.UUID
     amount_usd: float = Field(..., gt=0)
@@ -114,6 +116,7 @@ class InvoiceResponse(BaseModel):
 
 # ── Usage Records ────────────────────────────────────────────
 
+
 class UsageRecordCreate(BaseModel):
     metric: str = Field(..., min_length=1)
     value: float = Field(default=0.0)
@@ -141,6 +144,7 @@ class UsageSummaryResponse(BaseModel):
 
 
 # ── Payment Methods ──────────────────────────────────────────
+
 
 class PaymentMethodCreate(BaseModel):
     provider: str = Field(..., min_length=1)

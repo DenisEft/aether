@@ -12,13 +12,13 @@ Design principles:
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+import logging
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import select, text, update
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -28,7 +28,6 @@ from app.models.documents import (
     DocumentTag,
     DocumentVersion,
     Tag,
-    Template,
 )
 
 logger = logging.getLogger(__name__)
@@ -117,7 +116,7 @@ class DocumentService:
         # TODO: Check plan limits when billing is wired up
         # await self._check_document_limit(data.tenant_id)
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         document = Document(
             id=uuid4(),
             tenant_id=data.tenant_id,
@@ -224,9 +223,9 @@ class DocumentService:
         if search:
             # Full-text search via PostgreSQL tsvector
             conditions.append(
-                text(
-                    "documents.search_vector @@ plainto_tsquery('russian', :q)"
-                ).bindparams(q=search)
+                text("documents.search_vector @@ plainto_tsquery('russian', :q)").bindparams(
+                    q=search
+                )
             )
 
         query = (
@@ -238,9 +237,9 @@ class DocumentService:
 
         if search:
             query = query.order_by(
-                text(
-                    "ts_rank(search_vector, plainto_tsquery('russian', :q)) DESC"
-                ).bindparams(q=search)
+                text("ts_rank(search_vector, plainto_tsquery('russian', :q)) DESC").bindparams(
+                    q=search
+                )
             )
 
         result = await self._session.execute(query)
@@ -266,7 +265,7 @@ class DocumentService:
         """
         document = await self.get(document_id, tenant_id)
         old_fields = dict(document.fields)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         changes: dict[str, Any] = {}
 
         if data.title is not None and data.title != document.title:
@@ -356,7 +355,7 @@ class DocumentService:
                         f"Allowed: {allowed}"
                     )
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         document.status = new_status
         new_version_num = document.version + 1
         document.version = new_version_num
@@ -368,9 +367,8 @@ class DocumentService:
             version=new_version_num,
             fields_snapshot=dict(document.fields),
             status=new_status,
-            change_description=f"Status: {old_status} → {new_status}" + (
-                f" — {transition.comment}" if transition.comment else ""
-            ),
+            change_description=f"Status: {old_status} → {new_status}"
+            + (f" — {transition.comment}" if transition.comment else ""),
             changed_by=user_id,
             created_at=now,
         )
@@ -405,15 +403,15 @@ class DocumentService:
         """Soft-delete a document (moves to Trash, recoverable for 30 days)."""
         document = await self.get(document_id, tenant_id)
         document.is_deleted = True
-        document.deleted_at = datetime.now(timezone.utc)
-        document.updated_at = datetime.now(timezone.utc)
+        document.deleted_at = datetime.now(UTC)
+        document.updated_at = datetime.now(UTC)
 
         operation = DocumentOperation(
             document_id=document.id,
             version=document.version,
             op_type="delete",
             op_data={"method": "soft"},
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
         self._session.add(operation)
 
@@ -437,14 +435,14 @@ class DocumentService:
 
         document.is_deleted = False
         document.deleted_at = None
-        document.updated_at = datetime.now(timezone.utc)
+        document.updated_at = datetime.now(UTC)
 
         operation = DocumentOperation(
             document_id=document.id,
             version=document.version,
             op_type="restore",
-            op_data={"restored_at": datetime.now(timezone.utc).isoformat()},
-            created_at=datetime.now(timezone.utc),
+            op_data={"restored_at": datetime.now(UTC).isoformat()},
+            created_at=datetime.now(UTC),
         )
         self._session.add(operation)
 
@@ -501,7 +499,7 @@ class DocumentService:
                 "to_version": version,
             },
             user_id=user_id,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
         self._session.add(operation)
         await self._session.flush()
@@ -520,7 +518,7 @@ class DocumentService:
         )
         tag = result.scalar_one_or_none()
         if tag is None:
-            tag = Tag(tenant_id=tenant_id, name=tag_name, created_at=datetime.now(timezone.utc))
+            tag = Tag(tenant_id=tenant_id, name=tag_name, created_at=datetime.now(UTC))
             self._session.add(tag)
             await self._session.flush()
 
@@ -537,9 +535,7 @@ class DocumentService:
 
         return document
 
-    async def remove_tag(
-        self, document_id: UUID, tenant_id: UUID, tag_name: str
-    ) -> Document:
+    async def remove_tag(self, document_id: UUID, tenant_id: UUID, tag_name: str) -> Document:
         """Remove a tag from a document."""
         await self.get(document_id, tenant_id)
 
@@ -572,8 +568,6 @@ class DocumentService:
         """Get all tags for a document."""
         await self.get(document_id, tenant_id)
         result = await self._session.execute(
-            select(Tag)
-            .join(DocumentTag)
-            .where(DocumentTag.document_id == document_id)
+            select(Tag).join(DocumentTag).where(DocumentTag.document_id == document_id)
         )
         return list(result.scalars().all())

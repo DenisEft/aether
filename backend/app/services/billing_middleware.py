@@ -10,8 +10,8 @@ Integration point: monkey-patches InferencePool to inject billing checks.
 
 from __future__ import annotations
 
-import logging
 from contextvars import ContextVar
+import logging
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -61,7 +61,9 @@ class BillingAIMiddleware:
         """
         try:
             # Check if we're within quota
-            await self.billing.check_quota(tenant_id, "tokens", float(prompt_tokens + completion_tokens))
+            await self.billing.check_quota(
+                tenant_id, "tokens", float(prompt_tokens + completion_tokens)
+            )
         except QuotaExceededError as e:
             logger.warning(
                 f"AI quota exceeded: tenant={tenant_id} "

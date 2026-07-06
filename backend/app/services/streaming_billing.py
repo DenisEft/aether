@@ -11,7 +11,6 @@ non-streaming generate() which returns real token counts.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
 from uuid import UUID
 
 from app.services.billing_service import BillingService, QuotaExceededError
@@ -115,9 +114,7 @@ class StreamingBillingTracker:
             )
         except Exception:
             # Don't block the response if usage recording fails
-            logger.exception(
-                f"Failed to record streaming token usage for tenant={self.tenant_id}"
-            )
+            logger.exception(f"Failed to record streaming token usage for tenant={self.tenant_id}")
 
 
 async def check_streaming_quota(

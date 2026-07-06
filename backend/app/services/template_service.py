@@ -12,12 +12,12 @@ Design principles:
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
+import logging
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.documents import Template
@@ -184,9 +184,7 @@ class TemplateService:
         Raises:
             TemplateNotFoundError: If template doesn't exist.
         """
-        result = await self._session.execute(
-            select(Template).where(Template.id == template_id)
-        )
+        result = await self._session.execute(select(Template).where(Template.id == template_id))
         template = result.scalar_one_or_none()
         if not template:
             raise TemplateNotFoundError(f"Template {template_id} not found")
@@ -222,17 +220,14 @@ class TemplateService:
             Template.is_active == True,
         ]
         if tenant_id is not None:
-            conditions.append(
-                (Template.tenant_id == tenant_id) | (Template.tenant_id == None)
-            )
+            conditions.append((Template.tenant_id == tenant_id) | (Template.tenant_id == None))
         if document_type:
             conditions.append(Template.document_type == document_type)
         if is_active is not None:
             conditions.append(Template.is_active == is_active)
         if search:
             conditions.append(
-                (Template.name.ilike(f"%{search}%")) |
-                (Template.description.ilike(f"%{search}%"))
+                (Template.name.ilike(f"%{search}%")) | (Template.description.ilike(f"%{search}%"))
             )
 
         # Total count
@@ -375,9 +370,7 @@ class TemplateService:
 
     # ── Queries ────────────────────────────────────────────────
 
-    async def get_by_type(
-        self, tenant_id: UUID | None, document_type: str
-    ) -> list[Template]:
+    async def get_by_type(self, tenant_id: UUID | None, document_type: str) -> list[Template]:
         """Get active templates for a document type (tenant + system)."""
         result = await self._session.execute(
             select(Template).where(
@@ -390,9 +383,7 @@ class TemplateService:
 
     # ── Validation ─────────────────────────────────────────────
 
-    def validate_fields(
-        self, template: Template, document_fields: dict[str, Any]
-    ) -> list[str]:
+    def validate_fields(self, template: Template, document_fields: dict[str, Any]) -> list[str]:
         """Validate document fields against template field definitions.
 
         Args:

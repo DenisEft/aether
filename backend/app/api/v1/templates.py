@@ -8,18 +8,17 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
-
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_active_user
 from app.database import get_db
 from app.models import User
 from app.services.template_service import (
+    SystemTemplateProtectedError,
     TemplateCreate,
     TemplateNotFoundError,
     TemplateService,
     TemplateUpdate,
-    SystemTemplateProtectedError,
 )
 
 logger = logging.getLogger(__name__)
@@ -52,7 +51,7 @@ class TemplateResponse(BaseModel):
     model_config = {"from_attributes": True}
 
     @classmethod
-    def from_orm(cls, template) -> "TemplateResponse":
+    def from_orm(cls, template) -> TemplateResponse:
         return cls(
             id=template.id,
             tenant_id=template.tenant_id,
@@ -203,8 +202,7 @@ async def list_public_templates(
     # Filter out private templates that don't belong to the user's tenant
     # but include system templates (which are public by definition)
     filtered_templates = [
-        t for t in templates 
-        if t.is_public or t.tenant_id == current_user.tenant_id or t.is_system
+        t for t in templates if t.is_public or t.tenant_id == current_user.tenant_id or t.is_system
     ]
     return TemplateListResponse(
         items=[TemplateResponse.from_orm(t) for t in filtered_templates],
@@ -312,7 +310,7 @@ async def get_status_options(
         template = await service.get(template_id, current_user.tenant_id)
     except TemplateNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    
+
     return service.get_status_options(template)
 
 
@@ -328,9 +326,6 @@ async def validate_template_fields(
         template = await service.get(template_id, current_user.tenant_id)
     except TemplateNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    
+
     errors = service.validate_fields(template, body.fields)
-    return TemplateValidateResponse(
-        valid=len(errors) == 0,
-        errors=errors
-    )
+    return TemplateValidateResponse(valid=len(errors) == 0, errors=errors)

@@ -10,17 +10,18 @@ Lifecycle:
 
 from __future__ import annotations
 
-import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
-
+import uuid
 
 # ── Permissions ──────────────────────────────────────────────
 
+
 class PluginPermission(str, Enum):
     """Permissions a plugin can request in its manifest."""
+
     READ_DB = "read_db"
     WRITE_DB = "write_db"
     CALL_AI = "call_ai"
@@ -33,32 +34,36 @@ class PluginPermission(str, Enum):
 
 # ── Plugin Status ────────────────────────────────────────────
 
+
 class PluginStatus(str, Enum):
-    REGISTERED = "registered"    # discovered, not yet validated
-    VALIDATED = "validated"      # schema check passed
-    ACTIVE = "active"            # running, handling intents
-    INACTIVE = "inactive"        # installed but paused
-    ERROR = "error"              # runtime error
+    REGISTERED = "registered"  # discovered, not yet validated
+    VALIDATED = "validated"  # schema check passed
+    ACTIVE = "active"  # running, handling intents
+    INACTIVE = "inactive"  # installed but paused
+    ERROR = "error"  # runtime error
     UNINSTALLING = "uninstalling"
 
 
 # ── Data Classes ─────────────────────────────────────────────
 
+
 @dataclass
 class Capability:
     """What a plugin can do — declared in manifest."""
-    name: str                              # "document_generation", "price_calculation"
-    display_name: str                      # Human-readable
+
+    name: str  # "document_generation", "price_calculation"
+    display_name: str  # Human-readable
     description: str
-    input_schema: dict[str, Any] = field(default_factory=dict)    # JSON Schema
-    output_schema: dict[str, Any] = field(default_factory=dict)   # JSON Schema
+    input_schema: dict[str, Any] = field(default_factory=dict)  # JSON Schema
+    output_schema: dict[str, Any] = field(default_factory=dict)  # JSON Schema
     examples: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
 class Intent:
     """What the user wants — classified by AI pipeline."""
-    intent_type: str                       # "order_status", "faq", "document_request"
+
+    intent_type: str  # "order_status", "faq", "document_request"
     entities: dict[str, Any] = field(default_factory=dict)
     confidence: float = 0.0
     raw_message: str = ""
@@ -69,8 +74,9 @@ class Intent:
 @dataclass
 class PluginResult:
     """Result returned by a plugin after handling an intent."""
+
     success: bool
-    text: str = ""                         # Main response text
+    text: str = ""  # Main response text
     actions: list[Action] = field(default_factory=list)
     data: dict[str, Any] = field(default_factory=dict)  # Structured data for templates
     error: str | None = None
@@ -80,8 +86,9 @@ class PluginResult:
 @dataclass
 class Action:
     """An action the plugin wants the system to execute."""
-    action_type: str                       # "send_message", "call_api", "wait_for_input",
-                                           # "schedule_task", "transfer_to_human", "execute_code"
+
+    action_type: str  # "send_message", "call_api", "wait_for_input",
+    # "schedule_task", "transfer_to_human", "execute_code"
     payload: dict[str, Any] = field(default_factory=dict)
     priority: int = 0
     delay_seconds: float = 0.0
@@ -90,6 +97,7 @@ class Action:
 @dataclass
 class PluginHealth:
     """Health status of a plugin."""
+
     status: PluginStatus
     uptime_seconds: float = 0.0
     total_requests: int = 0
@@ -102,9 +110,10 @@ class PluginHealth:
 @dataclass
 class PluginManifest:
     """Plugin descriptor — plugin.json schema."""
-    id: str                                # "faq", "gu12", "custom.tenant123.checkout"
-    name: str                              # Display name
-    version: str                           # SemVer
+
+    id: str  # "faq", "gu12", "custom.tenant123.checkout"
+    name: str  # Display name
+    version: str  # SemVer
     description: str
     author: str = ""
     homepage: str = ""
@@ -121,25 +130,28 @@ class PluginManifest:
 @dataclass
 class ToolDefinition:
     """External API or tool a plugin declares it can use."""
-    name: str                              # "search_wagon", "get_order_status"
+
+    name: str  # "search_wagon", "get_order_status"
     description: str
     parameters: dict[str, Any] = field(default_factory=dict)  # JSON Schema for params
-    returns: dict[str, Any] = field(default_factory=dict)      # JSON Schema for return
-    endpoint: str = ""                     # URL or internal path
-    method: str = "POST"                   # HTTP method
+    returns: dict[str, Any] = field(default_factory=dict)  # JSON Schema for return
+    endpoint: str = ""  # URL or internal path
+    method: str = "POST"  # HTTP method
     auth_required: bool = False
     rate_limit_per_minute: int = 60
 
 
 # ── Plugin Context (passed to each plugin call) ──────────────
 
+
 @dataclass
 class PluginContext:
     """Context passed to a plugin when handling an intent."""
+
     tenant_id: uuid.UUID
     user_id: uuid.UUID | None = None
     conversation_id: uuid.UUID | None = None
-    channel_type: str = "unknown"          # telegram, web_widget, email
+    channel_type: str = "unknown"  # telegram, web_widget, email
     conversation_history: list[dict[str, str]] = field(default_factory=list)
     collected_entities: dict[str, Any] = field(default_factory=dict)
     session_state: dict[str, Any] = field(default_factory=dict)  # Form state machine
@@ -147,6 +159,7 @@ class PluginContext:
 
 
 # ── BaseServicePlugin (ABC) ──────────────────────────────────
+
 
 class BaseServicePlugin(ABC):
     """Abstract base class for all service plugins.
@@ -170,9 +183,7 @@ class BaseServicePlugin(ABC):
         ...
 
     @abstractmethod
-    async def handle_intent(
-        self, intent: Intent, context: PluginContext
-    ) -> PluginResult:
+    async def handle_intent(self, intent: Intent, context: PluginContext) -> PluginResult:
         """Handle a classified intent. Main entry point for the plugin.
 
         Called by PluginRegistry when an intent matches this plugin's intents list.

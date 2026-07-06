@@ -6,18 +6,15 @@ activation, suspension, and deletion.
 
 from __future__ import annotations
 
+from datetime import datetime
 import logging
-from datetime import datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.tenants import Tenant, TenantConfig, TenantFeature, TenantLimit
+from app.models.tenants import Tenant
 from app.models.users import User
-from app.models.channels import Channel
-from app.models.organisations import Organisation
-from app.models.billing import Subscription, SubscriptionPlan
 
 logger = logging.getLogger("aether.tenant_provisioning")
 
@@ -54,16 +51,16 @@ class TenantProvisioningService:
             # - Create default roles
             # - Create default channels
             # - Activate trial subscription
-            
+
             await self._session.commit()
-            
+
             return {
                 "status": "success",
                 "tenant_id": str(tenant_id),
                 "message": "Tenant provisioned successfully",
-                "provisioned_at": datetime.now().isoformat()
+                "provisioned_at": datetime.now().isoformat(),
             }
-            
+
         except Exception as e:
             logger.error(f"Failed to provision tenant {tenant_id}: {e}")
             await self._session.rollback()
@@ -97,14 +94,14 @@ class TenantProvisioningService:
             tenant.suspension_reason = reason
 
             await self._session.commit()
-            
+
             return {
                 "status": "success",
                 "tenant_id": str(tenant_id),
                 "message": "Tenant suspended successfully",
-                "suspended_at": datetime.now().isoformat()
+                "suspended_at": datetime.now().isoformat(),
             }
-            
+
         except Exception as e:
             logger.error(f"Failed to suspend tenant {tenant_id}: {e}")
             await self._session.rollback()
@@ -137,14 +134,14 @@ class TenantProvisioningService:
             )
 
             await self._session.commit()
-            
+
             return {
                 "status": "success",
                 "tenant_id": str(tenant_id),
                 "message": "Tenant activated successfully",
-                "activated_at": datetime.now().isoformat()
+                "activated_at": datetime.now().isoformat(),
             }
-            
+
         except Exception as e:
             logger.error(f"Failed to activate tenant {tenant_id}: {e}")
             await self._session.rollback()
@@ -177,14 +174,14 @@ class TenantProvisioningService:
                 tenant.is_active = False
 
             await self._session.commit()
-            
+
             return {
                 "status": "success",
                 "tenant_id": str(tenant_id),
                 "message": f"Tenant {'hard' if hard else 'soft'} deleted successfully",
-                "deleted_at": datetime.now().isoformat()
+                "deleted_at": datetime.now().isoformat(),
             }
-            
+
         except Exception as e:
             logger.error(f"Failed to delete tenant {tenant_id}: {e}")
             await self._session.rollback()

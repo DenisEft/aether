@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db as _get_db
 
-
 # ── DB dependency (FastAPI Annotated alias) ──────────────────
 DbSession = Annotated[AsyncSession, Depends(_get_db)]
 

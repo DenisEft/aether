@@ -8,7 +8,7 @@ from sqlalchemy import ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, TimestampMixin, UUIDPrimaryKey, utcnow
+from app.models.base import Base, TimestampMixin, UUIDPrimaryKey
 
 
 class Organisation(Base, UUIDPrimaryKey, TimestampMixin):
@@ -21,5 +21,5 @@ class Organisation(Base, UUIDPrimaryKey, TimestampMixin):
     slug: Mapped[str] = mapped_column(String, nullable=False)
     logo_url: Mapped[str | None] = mapped_column(String)
 
-    tenant: Mapped["Tenant"] = relationship(back_populates="organisations")
-    memberships: Mapped[list["Membership"]] = relationship(back_populates="organisation")
+    tenant: Mapped[Tenant] = relationship(back_populates="organisations")
+    memberships: Mapped[list[Membership]] = relationship(back_populates="organisation")

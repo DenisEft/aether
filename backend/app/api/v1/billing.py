@@ -2,28 +2,22 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 import uuid
-from datetime import datetime, timedelta, date
 
 from fastapi import APIRouter, HTTPException, Query, status
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 
-from app.core.deps import DBDep, CurrentActiveUser, CurrentSuperuser
+from app.core.deps import CurrentActiveUser, CurrentSuperuser, DBDep
 from app.models.billing import (
     Invoice,
-    PaymentMethod,
     Subscription,
     SubscriptionPlan,
     UsageRecord,
 )
-from app.models.enums import SubscriptionStatus, InvoiceStatus
+from app.models.enums import InvoiceStatus, SubscriptionStatus
 from app.schemas.billing import (
-    InvoiceCreate,
     InvoiceResponse,
-    InvoiceUpdate,
-    PaymentMethodCreate,
-    PaymentMethodResponse,
-    PaymentMethodUpdate,
     SubscriptionCreate,
     SubscriptionPlanCreate,
     SubscriptionPlanResponse,
@@ -42,6 +36,7 @@ router = APIRouter(tags=["billing"])
 # ─────────────────────────────────────────────────────────────
 # SUBSCRIPTION PLANS (global — superuser manages, active user reads)
 # ─────────────────────────────────────────────────────────────
+
 
 @router.get("/billing/plans", response_model=list[SubscriptionPlanResponse])
 async def list_plans(
@@ -89,9 +84,7 @@ async def get_plan(
     current_user: CurrentActiveUser,
 ) -> SubscriptionPlanResponse:
     """Get subscription plan details."""
-    result = await db.execute(
-        select(SubscriptionPlan).where(SubscriptionPlan.id == plan_id)
-    )
+    result = await db.execute(select(SubscriptionPlan).where(SubscriptionPlan.id == plan_id))
     plan = result.scalar_one_or_none()
     if plan is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found")
@@ -106,15 +99,21 @@ async def update_plan(
     current_user: CurrentSuperuser,
 ) -> SubscriptionPlanResponse:
     """Update a subscription plan (superuser only)."""
-    result = await db.execute(
-        select(SubscriptionPlan).where(SubscriptionPlan.id == plan_id)
-    )
+    result = await db.execute(select(SubscriptionPlan).where(SubscriptionPlan.id == plan_id))
     plan = result.scalar_one_or_none()
     if plan is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found")
 
-    for field in ("name", "description", "price_monthly_usd", "price_yearly_usd",
-                  "features", "limits", "is_public", "sort_order"):
+    for field in (
+        "name",
+        "description",
+        "price_monthly_usd",
+        "price_yearly_usd",
+        "features",
+        "limits",
+        "is_public",
+        "sort_order",
+    ):
         val = getattr(body, field, None)
         if val is not None:
             setattr(plan, field, val)
@@ -131,9 +130,7 @@ async def delete_plan(
     current_user: CurrentSuperuser,
 ) -> dict:
     """Delete a subscription plan (superuser only)."""
-    result = await db.execute(
-        select(SubscriptionPlan).where(SubscriptionPlan.id == plan_id)
-    )
+    result = await db.execute(select(SubscriptionPlan).where(SubscriptionPlan.id == plan_id))
     plan = result.scalar_one_or_none()
     if plan is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found")
@@ -146,6 +143,7 @@ async def delete_plan(
 # ─────────────────────────────────────────────────────────────
 # SUBSCRIPTIONS (tenant-scoped)
 # ─────────────────────────────────────────────────────────────
+
 
 @router.get("/billing/subscriptions", response_model=list[SubscriptionResponse])
 async def list_subscriptions(
@@ -278,6 +276,7 @@ async def cancel_subscription(
 # INVOICES (tenant-scoped)
 # ─────────────────────────────────────────────────────────────
 
+
 @router.get("/billing/invoices", response_model=list[InvoiceResponse])
 async def list_invoices(
     db: DBDep,
@@ -315,6 +314,7 @@ async def get_invoice(
 # ─────────────────────────────────────────────────────────────
 # USAGE RECORDS (tenant-scoped)
 # ─────────────────────────────────────────────────────────────
+
 
 @router.get("/billing/usage", response_model=list[UsageRecordResponse])
 async def list_usage(
@@ -383,6 +383,7 @@ async def usage_summary(
 # BILLING STATUS (new — full summary + quota check)
 # ─────────────────────────────────────────────────────────────
 
+
 @router.get("/billing/status")
 async def billing_status(
     db: DBDep,
@@ -399,10 +400,12 @@ async def billing_status(
 
     # Get active subscription
     sub_result = await db.execute(
-        select(Subscription).where(
+        select(Subscription)
+        .where(
             Subscription.tenant_id == current_user.tenant_id,
             Subscription.status.in_([SubscriptionStatus.active, SubscriptionStatus.trial]),
-        ).limit(1)
+        )
+        .limit(1)
     )
     subscription = sub_result.scalar_one_or_none()
 
@@ -412,15 +415,23 @@ async def billing_status(
             "id": plan.id if plan else "free",
             "name": plan.name if plan else "Free",
             "price_monthly_usd": plan.price_monthly_usd if plan else 0.0,
-        } if plan else {
+        }
+        if plan
+        else {
             "id": "free",
             "name": "Free",
             "price_monthly_usd": 0.0,
         },
         "subscription": {
             "status": subscription.status if subscription else "active",
-            "trial_ends_at": subscription.trial_ends_at.isoformat() if subscription and subscription.trial_ends_at else None,
-            "current_period_end": subscription.current_period_end.isoformat() if subscription else None,
-        } if subscription else None,
+            "trial_ends_at": subscription.trial_ends_at.isoformat()
+            if subscription and subscription.trial_ends_at
+            else None,
+            "current_period_end": subscription.current_period_end.isoformat()
+            if subscription
+            else None,
+        }
+        if subscription
+        else None,
         "usage": usage,
     }

@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 from app.plugins.base import (
+    Action,
     BaseServicePlugin,
     Intent,
     PluginContext,
+    PluginHealth,
     PluginManifest,
     PluginResult,
     PluginStatus,
-    PluginHealth,
-    Action,
 )
 
 
@@ -68,7 +68,10 @@ class FormPlugin(BaseServicePlugin):
                         "session_state": {f"form_{form_name}": state},
                     },
                     actions=[
-                        Action(action_type="wait_for_input", payload={"field": next_field, "form": form_name}),
+                        Action(
+                            action_type="wait_for_input",
+                            payload={"field": next_field, "form": form_name},
+                        ),
                     ],
                 )
 
